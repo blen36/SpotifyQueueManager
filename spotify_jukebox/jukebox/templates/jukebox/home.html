@@ -1,0 +1,21 @@
+{% extends 'jukebox/base.html' %}
+
+{% block content %}
+<div class="row min-vh-75 align-items-center justify-content-center text-center">
+    <div class="col-md-8">
+        <h1 class="display-4 fw-bold mb-4">Управляйте музыкой вместе</h1>
+        <p class="lead text-secondary mb-5">
+            Создайте комнату или присоединитесь к друзьям, чтобы создать идеальную очередь треков в Spotify.
+        </p>
+
+        <div class="d-grid gap-3 d-sm-flex justify-content-sm-center">
+            <a href="#" class="btn btn-spotify btn-lg px-4 gap-3">
+                Создать комнату
+            </a>
+            <a href="#" class="btn btn-outline-spotify btn-lg px-4">
+                Войти по коду
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
