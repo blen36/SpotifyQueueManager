@@ -1,0 +1,50 @@
+{% extends 'jukebox/base.html' %}
+
+{% block content %}
+<div class="row justify-content-center mt-4">
+    <div class="col-md-6 col-lg-5 text-center">
+
+        <div class="mb-4">
+            <span class="text-secondary text-uppercase small ls-1">Код комнаты</span>
+            <h2 class="display-6 fw-bold">{{ room_code|default:"----" }}</h2>
+        </div>
+
+        <div class="mb-4">
+            <div class="album-cover-placeholder rounded">
+                <i class="bi bi-music-note-list" style="font-size: 4rem;"></i>
+            </div>
+        </div>
+
+        <div class="mb-4 text-start px-3">
+            <h3 class="h4 mb-1 text-truncate">Название трека</h3>
+            <p class="text-secondary text-truncate">Имя Исполнителя</p>
+        </div>
+
+        <div class="progress mb-4" style="height: 4px; background-color: #535353;">
+            <div class="progress-bar bg-white" role="progressbar" style="width: 0%"></div>
+        </div>
+
+        <div class="d-flex justify-content-center align-items-center gap-4 mb-5">
+            <button class="btn btn-link text-secondary p-0">
+                <i class="bi bi-skip-start-fill fs-2"></i>
+            </button>
+
+            <button class="btn btn-light rounded-circle p-0 d-flex align-items-center justify-content-center"
+                    style="width: 64px; height: 64px;">
+                <i class="bi bi-play-fill text-black fs-1 ms-1"></i>
+                </button>
+
+            <button class="btn btn-link text-secondary p-0">
+                <i class="bi bi-skip-end-fill fs-2"></i>
+            </button>
+        </div>
+
+        {% if is_host %}
+            <div class="alert alert-dark text-white border-0 bg-opacity-10 small">
+                Вы ведущий этой комнаты
+            </div>
+        {% endif %}
+
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,80 @@
+/* jukebox/static/css/style.css */
+
+:root {
+    --spotify-black: #121212;
+    --spotify-dark-gray: #181818;
+    --spotify-light-gray: #282828;
+    --spotify-green: #1DB954;
+    --text-primary: #FFFFFF;
+    --text-secondary: #B3B3B3;
+}
+
+body {
+    background-color: var(--spotify-black);
+    color: var(--text-primary);
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+
+/* Навбар */
+.navbar {
+    background-color: #000000 !important;
+    border-bottom: 1px solid var(--spotify-light-gray);
+}
+
+.navbar-brand {
+    font-weight: bold;
+    color: var(--spotify-green) !important;
+}
+
+/* Карточки и контейнеры */
+.glass-panel {
+    background-color: var(--spotify-dark-gray);
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+}
+
+/* Кнопки */
+.btn-spotify {
+    background-color: var(--spotify-green);
+    color: white;
+    border-radius: 50px;
+    font-weight: bold;
+    padding: 10px 30px;
+    border: none;
+    transition: transform 0.2s;
+}
+
+.btn-spotify:hover {
+    background-color: #1ed760;
+    transform: scale(1.05);
+    color: white;
+}
+
+.btn-outline-spotify {
+    background-color: transparent;
+    border: 1px solid #878787;
+    color: white;
+    border-radius: 50px;
+    font-weight: bold;
+    padding: 10px 30px;
+}
+
+.btn-outline-spotify:hover {
+    border-color: white;
+    transform: scale(1.05);
+}
+
+/* Обложка альбома */
+.album-cover-placeholder {
+    width: 100%;
+    max-width: 300px;
+    aspect-ratio: 1 / 1;
+    background-color: var(--spotify-light-gray);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    color: var(--text-secondary);
+}

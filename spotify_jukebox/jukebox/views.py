@@ -3,13 +3,12 @@ from django.contrib.auth.decorators import login_required
 from .models import Room
 from .forms import CreateRoomForm, JoinRoomForm
 
-
 def home(request):
     """Главная страница: выбор (Создать или Войти)"""
+    # Здесь используется твой шаблон home.html
     return render(request, 'jukebox/home.html')
 
-
-@login_required(login_url='/admin/login/')  # Пока отправляем в админку, если не вошел, позже сделаем норм вход
+@login_required(login_url='/admin/login/')
 def create_room(request):
     """Логика создания комнаты"""
     if request.method == 'POST':
@@ -19,14 +18,15 @@ def create_room(request):
             room.host = request.user
             room.save()
 
-            # ВАЖНО: Запоминаем в сессии, что этот юзер сидит в этой комнате
+            # Запоминаем в сессии, что этот юзер сидит в этой комнате
             request.session['room_code'] = room.code
+            # Перенаправляем на функцию room (см. ниже)
             return redirect('room', room_code=room.code)
     else:
         form = CreateRoomForm()
 
+    # Внимание: тут нужен шаблон create_room.html (его пока нет, это нормально)
     return render(request, 'jukebox/create_room.html', {'form': form})
-
 
 def join_room(request):
     """Логика входа в существующую комнату"""
@@ -45,8 +45,8 @@ def join_room(request):
     else:
         form = JoinRoomForm()
 
+    # Внимание: тут нужен шаблон join_room.html
     return render(request, 'jukebox/join_room.html', {'form': form})
-
 
 def room(request, room_code):
     """Страница самой комнаты"""
@@ -58,7 +58,9 @@ def room(request, room_code):
         context = {
             'room': room,
             'is_host': is_host,
+            # 'room_code': room.code — можно добавить, но оно есть в объекте room
         }
+        # Здесь используется твой шаблон room.html
         return render(request, 'jukebox/room.html', context)
     else:
         return redirect('home')
