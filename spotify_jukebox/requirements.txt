@@ -5,3 +5,4 @@ spotipy>=2.23
 qrcode>=7.4
 Pillow>=10.0
 requests>=2.31
+djangorestframework>=3.14
