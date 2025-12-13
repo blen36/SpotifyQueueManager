@@ -1,0 +1,26 @@
+<div class="list-group">
+    {% for song in songs %}
+    <div class="list-group-item d-flex align-items-center bg-dark text-white border-secondary">
+        <img src="{{ song.image_url }}" alt="{{ song.title }}" class="rounded me-3" width="50" height="50">
+
+        <div class="flex-grow-1">
+            <h6 class="mb-0 fw-bold">{{ song.title }}</h6>
+            <small class="text-secondary">{{ song.artist }}</small>
+        </div>
+
+        <button class="btn btn-sm btn-success rounded-pill"
+                hx-post="/api/queue"
+                hx-vals='{"uri": "{{ song.uri }}"}'
+                hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+                hx-swap="outerHTML">
+            <i class="bi bi-plus-lg"></i> Add
+        </button>
+    </div>
+    {% empty %}
+    {% if request.GET.query %}
+        <div class="text-center text-secondary mt-3">
+            <p>Ничего не найдено</p>
+        </div>
+    {% endif %}
+    {% endfor %}
+</div>

@@ -15,49 +15,84 @@
              hx-trigger="every 1000ms"
              hx-swap="innerHTML">
 
+            {% if error %}
+                <div class="alert alert-warning d-flex align-items-center text-start small" role="alert">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    <div>
+                        <strong>Внимание:</strong> {{ error }}
+                    </div>
+                </div>
+            {% endif %}
+
             <div class="mb-3">
-                <img src="https://placehold.co/300x300/181818/white?text=No+Music"
+                <img src="{{ image_url|default:'https://placehold.co/300x300/181818/white?text=No+Music' }}"
                      alt="Album Cover"
                      class="img-fluid rounded shadow-lg"
                      style="max-width: 250px;">
             </div>
 
             <div class="mb-3">
-                <h3 class="h5 fw-bold mb-0 text-white">Нет активного трека</h3>
-                <p class="text-secondary small">Включите музыку в Spotify</p>
+                <h3 class="h5 fw-bold mb-0 text-white">{{ title|default:"Нет активного трека" }}</h3>
+                <p class="text-secondary small">{{ artist|default:"Включите музыку в Spotify" }}</p>
             </div>
 
+            {% if is_playing %}
             <div class="progress mb-3" style="height: 4px; background-color: #535353;">
-                <div class="progress-bar bg-success" role="progressbar" style="width: 0%"></div>
+                <div class="progress-bar bg-success" role="progressbar" style="width: {{ progress_percent }}%"></div>
             </div>
+            {% endif %}
 
             <div class="d-flex justify-content-center align-items-center gap-3">
 
-                <button class="btn btn-link text-secondary p-0"
-                        hx-put="/api/pause"
-                        hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
-                        hx-swap="none">
-                    <i class="bi bi-pause-circle-fill" style="font-size: 3rem;"></i>
-                </button>
+                {% if is_host %}
+                    <button class="btn btn-link text-secondary p-0" hx-put="/api/pause" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}' hx-swap="none">
+                        <i class="bi bi-pause-circle-fill" style="font-size: 3rem;"></i>
+                    </button>
+                    <button class="btn btn-link text-white p-0 hover-scale" hx-put="/api/play" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}' hx-swap="none">
+                        <i class="bi bi-play-circle-fill text-success" style="font-size: 4rem;"></i>
+                    </button>
+                {% endif %}
 
-                <button class="btn btn-link text-white p-0 hover-scale"
-                        hx-put="/api/play"
-                        hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
-                        hx-swap="none">
-                    <i class="bi bi-play-circle-fill text-success" style="font-size: 4rem;"></i>
-                </button>
-
-                <button class="btn btn-link text-secondary p-0"
+                <button class="btn btn-link p-0 {% if votes > 0 %}text-warning{% else %}text-secondary{% endif %}"
                         hx-post="/api/skip"
                         hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
-                        hx-swap="none">
-                    <i class="bi bi-skip-end-fill" style="font-size: 2.5rem;"></i>
+                        hx-swap="none"
+                        title="Голосовать за пропуск">
+                    <div class="d-flex flex-column align-items-center">
+                        <i class="bi bi-skip-end-fill" style="font-size: 2.5rem;"></i>
+                        <span style="font-size: 0.8rem; font-weight: bold;">
+                            Skip ({{ votes|default:0 }} / {{ votes_required|default:1 }})
+                        </span>
+                    </div>
                 </button>
+
+            </div>
+        </div>
+
+        <hr class="border-secondary my-4">
+
+        <div class="search-section text-start">
+            <h4 class="text-white mb-3 h5">Добавить трек в очередь</h4>
+
+            <div class="input-group mb-3">
+                <span class="input-group-text bg-dark border-secondary text-secondary">
+                    <i class="bi bi-search"></i>
+                </span>
+                <input type="text"
+                       name="query"
+                       class="form-control bg-dark text-white border-secondary"
+                       placeholder="Поиск треков..."
+                       hx-get="/api/search"
+                       hx-trigger="keyup changed delay:500ms"
+                       hx-target="#search-results"
+                       autocomplete="off">
             </div>
 
+            <div id="search-results" style="max-height: 400px; overflow-y: auto;"></div>
         </div>
+
         {% if is_host %}
-            <div class="alert alert-dark text-white border-0 bg-opacity-10 small">
+            <div class="mt-4 alert alert-dark text-white border-0 bg-opacity-10 small">
                 Вы ведущий этой комнаты
             </div>
         {% endif %}
@@ -68,5 +103,9 @@
 <style>
     .hover-scale { transition: transform 0.2s; }
     .hover-scale:active { transform: scale(0.95); }
+    /* Скроллбар для результатов поиска */
+    #search-results::-webkit-scrollbar { width: 8px; }
+    #search-results::-webkit-scrollbar-track { background: #121212; }
+    #search-results::-webkit-scrollbar-thumb { background: #535353; border-radius: 4px; }
 </style>
 {% endblock %}
