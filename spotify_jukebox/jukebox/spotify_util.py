@@ -3,7 +3,7 @@ from django.utils import timezone
 from datetime import timedelta
 from django.conf import settings
 from .models import SpotifyToken
-
+import json
 # Базовые URL Spotify
 BASE_URL = "https://api.spotify.com/v1/"
 TOKEN_URL = "https://accounts.spotify.com/api/token"
@@ -74,40 +74,54 @@ def execute_spotify_api_request(host_user, endpoint, post_=False, put_=False):
         return {'Error': 'Request failed or returned no content'}
 
 
-def get_current_song(host_user):
+def get_current_song(user):
     """
-    Получает информацию о текущем треке.
-    Эндпоинт: me/player/currently-playing
+    Получает информацию о текущем проигрываемом треке от Spotify.
     """
-    endpoint = "me/player/currently-playing"
-    response = execute_spotify_api_request(host_user, endpoint)
+    endpoint = "player/currently-playing"
+    response = execute_spotify_api_request(user, endpoint)
 
-    if 'error' in response or 'item' not in response:
-        return {'is_playing': False}  # Музыка не играет или ошибка
+    # 1. Проверка на ошибки или пустой ответ
+    if response.status_code == 204:  # 204 No Content - ничего не играет
+        return {}
 
-    item = response.get('item')
+    try:
+        data = response.json()
+    except Exception:
+        # Если ответ не JSON, возвращаем пустой объект
+        return {}
+
+    # ----------------------------------------------------
+    # --- БЛОК ОТЛАДКИ (DEBUGGING BLOCK) ---
+    # Этот код покажет нам, что именно Spotify присылает,
+    # чтобы мы поняли, почему 'is_playing' ложно.
+    print("\n--- RAW SPOTIFY RESPONSE START ---")
+    # Используем json.dumps для красивого форматирования вывода
+    print(json.dumps(data, indent=4, ensure_ascii=False))
+    print("--- RAW SPOTIFY RESPONSE END ---\n")
+    # ----------------------------------------------------
+
+    if data.get('item') is None:
+        return {}
+
+    # 2. Парсинг данных трека
+    item = data.get('item')
     duration = item.get('duration_ms')
-    progress = response.get('progress_ms')
+    progress = data.get('progress_ms')
     album_cover = item.get('album').get('images')[0].get('url')
-    is_playing = response.get('is_playing')
-    song_id = item.get('id')
 
-    # Формируем строку артистов (если их несколько)
-    artist_string = ""
-    for i, artist in enumerate(item.get('artists')):
-        if i > 0:
-            artist_string += ", "
-        artist_string += artist.get('name')
+    # ПРОВЕРКА: Почему is_playing = False? (ЭТО КЛЮЧЕВАЯ ПЕРЕМЕННАЯ!)
+    is_playing = data.get('is_playing')
 
     song = {
         'title': item.get('name'),
-        'artist': artist_string,
+        'artist': item.get('artists')[0].get('name'),
         'duration': duration,
         'time': progress,
         'image_url': album_cover,
         'is_playing': is_playing,
-        'votes': 0,  # Заготовка под голосование
-        'id': song_id
+        'votes': 0,  # Временно 0, голоса считаются в views
+        'id': item.get('id')
     }
 
     return song
@@ -126,10 +140,3 @@ def play_song(host_user):
 def skip_song(host_user):
     """Переключает на следующий трек."""
     return execute_spotify_api_request(host_user, "me/player/next", post_=True)
-def search_spotify(host, query):
-    print("SEARCH FUNCTION NOT IMPLEMENTED YET")
-    return []
-
-def add_to_queue(host, uri):
-    print("ADD QUEUE FUNCTION NOT IMPLEMENTED YET")
-    return
