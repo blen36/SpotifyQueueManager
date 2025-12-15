@@ -1,99 +1,163 @@
-<div class="text-center mb-3">
-    <img src="{{ song.image_url }}"
-         alt="Album Cover"
-         class="rounded album-art"
-         style="width: 100%; max-width: 300px; aspect-ratio: 1/1; object-fit: cover;">
+{% extends 'jukebox/base.html' %}
+
+{% block content %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+<style>
+    /* 1. Глобальная темная тема */
+    body {
+        background: linear-gradient(135deg, #121212 0%, #1e1e1e 100%);
+        color: white;
+        min-height: 100vh;
+    }
+
+    /* 2. Эффект стекла (Glassmorphism) */
+    .glass-panel {
+        background: rgba(255, 255, 255, 0.05); /* Прозрачный белый */
+        backdrop-filter: blur(15px);           /* Размытие фона */
+        -webkit-backdrop-filter: blur(15px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 20px;
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    }
+
+    /* Тени для обложки альбома */
+    .album-art {
+        box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        transition: transform 0.3s ease;
+    }
+    .album-art:hover {
+        transform: scale(1.02);
+    }
+
+    /* Круглые кнопки плеера */
+    .btn-circle {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        transition: all 0.2s;
+    }
+    .btn-white {
+        background: white;
+        color: black;
+        border: none;
+    }
+    .btn-white:hover {
+        background: #f0f0f0;
+        transform: scale(1.05);
+    }
+    
+    /* Скроллбар для результатов поиска */
+    #search-results::-webkit-scrollbar { width: 8px; }
+    #search-results::-webkit-scrollbar-track { background: transparent; }
+    #search-results::-webkit-scrollbar-thumb { background: #535353; border-radius: 4px; }
+</style>
+
+<div class="row justify-content-center mt-4">
+    <div class="col-md-6 col-lg-5">
+
+        <div class="d-flex justify-content-between align-items-center mb-4 px-2">
+            <button class="btn btn-outline-secondary btn-sm rounded-pill px-3"
+                    hx-post="/api/leave-room"
+                    hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+                <i class="fas fa-sign-out-alt"></i> Leave
+            </button>
+
+            <div class="text-center">
+                <span class="text-secondary text-uppercase small" style="letter-spacing: 2px; font-size: 0.7rem;">Room Code</span>
+                <h2 class="h3 fw-bold mb-0 text-white">{{ room.code }}</h2>
+            </div>
+
+            <button id="settings-btn"
+                    class="btn btn-outline-secondary btn-sm rounded-pill px-3"
+                    style="{% if not is_host %}display: none;{% endif %}"
+                    data-bs-toggle="modal" 
+                    data-bs-target="#settingsModal"
+                    hx-get="/api/get-room?code={{ room.code }}"
+                    hx-target="#settings-form-content">
+                <i class="fas fa-cog"></i>
+            </button>
+        </div>
+
+        <div id="music-player"
+             class="glass-panel p-4 mb-4 text-center"
+             hx-get="/api/current-song"
+             hx-trigger="load, every 1000ms"
+             hx-swap="innerHTML">
+            
+            <div class="py-4">
+                 <div class="spinner-border text-success" role="status"></div>
+                 <p class="text-secondary mt-3">Connecting to Spotify...</p>
+            </div>
+            
+        </div>
+        <hr class="border-secondary my-4" style="opacity: 0.2;">
+
+        <div class="search-section text-start">
+            <h5 class="text-white mb-3 ms-1">Add Song to Queue</h5>
+            
+            <div class="input-group mb-3">
+                <span class="input-group-text bg-dark border-secondary text-secondary">
+                    <i class="fas fa-search"></i>
+                </span>
+                <input type="text" 
+                       name="query" 
+                       class="form-control bg-dark text-white border-secondary" 
+                       placeholder="Search tracks..."
+                       hx-get="/api/search"
+                       hx-trigger="keyup changed delay:500ms"
+                       hx-target="#search-results"
+                       autocomplete="off">
+            </div>
+
+            <div id="search-results" style="max-height: 400px; overflow-y: auto;"></div>
+        </div>
+
+    </div>
 </div>
 
-<div class="text-center mb-4">
-    <h3 class="fw-bold text-white mb-1">{{ song.title }}</h3>
-    <p class="text-secondary mb-0">{{ song.artist }}</p>
-</div>
-
-<div class="progress-container mb-4">
-    <div class="progress bg-secondary bg-opacity-25" style="height: 6px; border-radius: 3px; overflow: hidden;">
-        <div id="progress"
-             class="progress-bar bg-success"
-             role="progressbar"
-             style="width: 0%; transition: width 0.1s linear;">
+<div class="modal fade" id="settingsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content text-white border-secondary" style="background: #212529;">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title">Room Settings</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="settings-form">
+                    <div id="settings-form-content">Loading settings...</div>
+                </form>
+            </div>
+            <div class="modal-footer border-secondary">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button class="btn btn-success"
+                        hx-patch="/api/update-room"
+                        hx-include="#settings-form"
+                        hx-vals='{"code": "{{ room.code }}"}'
+                        hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+                        data-bs-dismiss="modal">
+                    Save Changes
+                </button>
+            </div>
         </div>
     </div>
-    <div class="d-flex justify-content-between mt-1">
-        <span class="small text-secondary" id="curr-time">0:00</span>
-        <span class="small text-secondary">{{ song.duration_fmt }}</span> </div>
-</div>
-
-<div class="d-flex justify-content-center align-items-center gap-4">
-    {% if song.is_playing %}
-        <button class="btn btn-circle btn-lg btn-success hover-scale shadow-lg"
-                hx-put="/api/pause"
-                hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
-                hx-swap="none">
-            <i class="fas fa-pause text-black"></i>
-        </button>
-    {% else %}
-        <button class="btn btn-circle btn-lg btn-white hover-scale shadow-lg"
-                hx-put="/api/play"
-                hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
-                hx-swap="none">
-            <i class="fas fa-play text-black ml-1"></i>
-        </button>
-    {% endif %}
-
-    <button class="btn btn-circle btn-secondary hover-scale"
-            hx-post="/api/skip"
-            hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
-        <i class="fas fa-step-forward text-white"></i>
-    </button>
 </div>
 
 <script>
-    // 1. Очищаем старый таймер, если он был (важно при обновлении HTMX!)
-    if (window.progressInterval) {
-        clearInterval(window.progressInterval);
-    }
-
-    // 2. Получаем данные из Django (превращаем их в JS-переменные)
-    var songDuration = {{ song.duration }};  // В миллисекундах
-    var currentProgress = {{ song.time }};   // В миллисекундах
-    var isPlaying = {{ song.is_playing|yesno:"true,false" }};
-
-    // Функция форматирования времени (мсек -> 02:30)
-    function formatTime(ms) {
-        var totalSeconds = Math.floor(ms / 1000);
-        var minutes = Math.floor(totalSeconds / 60);
-        var seconds = totalSeconds % 60;
-        return minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
-    }
-
-    // 3. Запускаем таймер
-    if (isPlaying) {
-        window.progressInterval = setInterval(function() {
-            currentProgress += 100; // Добавляем 100мс каждые 0.1 сек
-
-            // Защита от переполнения
-            if (currentProgress > songDuration) currentProgress = songDuration;
-
-            // Вычисляем процент
-            var percent = (currentProgress / songDuration) * 100;
-
-            // Обновляем ширину полоски
-            var bar = document.getElementById('progress');
-            if (bar) {
-                bar.style.width = percent + '%';
+    document.body.addEventListener('htmx:afterOnLoad', function(evt) {
+        if (evt.detail.elt.id === 'music-player') {
+            const response = evt.detail.xhr.response;
+            const settingsBtn = document.getElementById('settings-btn');
+            
+            // Если в ответе есть кнопки управления плеером - мы Хост
+            if (response.includes('hx-put="/api/play"') || response.includes('hx-put="/api/pause"')) {
+                settingsBtn.style.display = 'inline-block';
             }
-
-            // Обновляем цифры таймера
-            var timeLabel = document.getElementById('curr-time');
-            if (timeLabel) {
-                timeLabel.innerText = formatTime(currentProgress);
-            }
-
-        }, 100);
-    } else {
-        // Если пауза, просто ставим текущий процент без таймера
-        var percent = (currentProgress / songDuration) * 100;
-        document.getElementById('progress').style.width = percent + '%';
-        document.getElementById('curr-time').innerText = formatTime(currentProgress);
-    }
+        }
+    });
 </script>
+{% endblock %}
