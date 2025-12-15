@@ -1,6 +1,6 @@
 from datetime import timedelta
 from django.utils import timezone
-from requests import post, put, get
+from requests import post, put, get, Request, exceptions
 from django.conf import settings
 import base64
 import requests
@@ -11,6 +11,8 @@ BASE_URL = "https://api.spotify.com/v1/"
 TOKEN_URL = "https://accounts.spotify.com/api/token" # Адрес для токенов
 # python manage.py shell
 
+PLAY_URL = "https://api.spotify.com/v1/me/player/play"
+PAUSE_URL = "https://api.spotify.com/v1/me/player/pause"
 
 # ==========================================
 # 1. УПРАВЛЕНИЕ ТОКЕНАМИ
@@ -239,14 +241,98 @@ def user_is_host(room_code, session_key):
     except Room.DoesNotExist:
         return False
 
+
+def play_song(user):
+    """
+    Отправляет команду Play на активное устройство Spotify.
+    """
+    # 1. Токен должен быть обновлен Человеком №1, но пока используем is_spotify_authenticated
+    # (который сам вызывает refresh, если нужно)
+    if not is_spotify_authenticated(user):
+        return {'error': 'User not authenticated'}
+
+    tokens = get_user_tokens(user)
+
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': "Bearer " + tokens.access_token
+    }
+
+    try:
+        # Используем PUT, так как это команда управления плеером
+        response = put(PLAY_URL, headers=headers)
+
+        # Проверка ответа: 204 No Content означает успех
+        if response.status_code == 204:
+            return {'success': True}
+
+        # Обработка других ошибок (например, 403 Forbidden - нет активного девайса)
+        response.raise_for_status()
+        return {'success': True}  # Не должно быть достигнуто, если status_code < 200
+
+    except exceptions.HTTPError as e:
+        # 404/403: Ошибка API
+        error_message = f"Spotify Control Error: {response.status_code}. No active device or permission denied."
+        try:
+            error_details = response.json()
+            error_message = error_details.get('error', {}).get('message', error_message)
+        except Exception:
+            pass
+
+        return {'error': error_message, 'status_code': response.status_code}
+    except Exception as e:
+        return {'error': f"Network or request issue: {str(e)}"}
+
+
+def pause_song(user):
+    """
+    Отправляет команду Pause на активное устройство Spotify.
+    """
+    if not is_spotify_authenticated(user):
+        return {'error': 'User not authenticated'}
+
+    tokens = get_user_tokens(user)
+
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': "Bearer " + tokens.access_token
+    }
+
+    try:
+        # Используем PUT
+        response = put(PAUSE_URL, headers=headers)
+
+        if response.status_code == 204:
+            return {'success': True}
+
+        response.raise_for_status()
+        return {'success': True}
+
+    except exceptions.HTTPError as e:
+        error_message = f"Spotify Control Error: {response.status_code}. No active device or permission denied."
+        try:
+            error_details = response.json()
+            error_message = error_details.get('error', {}).get('message', error_message)
+        except Exception:
+            pass
+
+        return {'error': error_message, 'status_code': response.status_code}
+    except Exception as e:
+        return {'error': f"Network or request issue: {str(e)}"}
+
+
 def get_current_song(host):
     """
-    Получить текущий трек + данные о голосовании
+    Получить текущий трек + данные о голосовании (ОБНОВЛЕНО)
+
+    Возвращает точные тайминги (duration_ms, progress_ms) для прогресс-бара.
     """
     # Импортируем модели Room и Vote здесь, чтобы избежать ошибки импорта
     from .models import Room, Vote
 
     endpoint = "me/player/currently-playing"
+
+    # Предполагаем, что execute_spotify_api_request уже обновляет токен при необходимости
     response = execute_spotify_api_request(host, endpoint)
 
     # Проверка на ошибку или отсутствие активного устройства
@@ -257,10 +343,14 @@ def get_current_song(host):
     if not item:
         return {'error': 'No music playing'}
 
-    duration = item.get('duration_ms')
-    progress = response.get('progress_ms')
-    album_cover = item.get('album', {}).get('images', [{}])[0].get('url')
+    # === КРИТИЧЕСКИЕ ДАННЫЕ ДЛЯ ПРОГРЕСС-БАРА (ОБНОВЛЕНИЕ) ===
+    # Используем новые, более точные имена (progress_ms, duration_ms)
+    duration_ms = item.get('duration_ms')
+    progress_ms = response.get('progress_ms')
     is_playing = response.get('is_playing')
+    # ========================================================
+
+    album_cover = item.get('album', {}).get('images', [{}])[0].get('url')
     song_id = item.get('id')
 
     # Формируем строку авторов (Artist 1, Artist 2)
@@ -278,16 +368,20 @@ def get_current_song(host):
         room = Room.objects.get(host=host)
         votes_required = room.votes_to_skip
         votes = Vote.objects.filter(room=room, song_id=song_id).count()
-    except:
+    except Exception:
         pass
 
     song = {
         'title': item.get('name'),
         'artist': artist_string,
-        'duration': duration,
-        'time': progress,
-        'image_url': album_cover,
+
+        # ОБНОВЛЕННЫЕ ПОЛЯ ДЛЯ ПРОГРЕСС-БАРА:
+        'duration': duration_ms,
+        'time': progress_ms,
         'is_playing': is_playing,
+        # ----------------------------------
+
+        'image_url': album_cover,
         'votes': votes,
         'votes_required': votes_required,
         'id': song_id
