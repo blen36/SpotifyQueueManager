@@ -4,9 +4,29 @@
 <div class="row justify-content-center mt-4">
     <div class="col-md-6 col-lg-5 text-center">
 
-        <div class="mb-4">
-            <span class="text-secondary text-uppercase small ls-1">Код комнаты</span>
-            <h2 class="display-6 fw-bold">{{ room.code }}</h2>
+        <div class="d-flex justify-content-between align-items-center mb-4">
+
+            <button class="btn btn-outline-danger btn-sm"
+                    hx-post="/api/leave-room"
+                    hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+                <i class="bi bi-box-arrow-left"></i> Leave
+            </button>
+
+            <div class="text-center">
+                <span class="text-secondary text-uppercase small ls-1">Room Code</span>
+                <h2 class="h4 fw-bold mb-0">{{ room.code }}</h2>
+            </div>
+
+            <button id="settings-btn"
+                    class="btn btn-outline-light btn-sm"
+                    style="{% if not is_host %}display: none;{% endif %}"
+                    data-bs-toggle="modal"
+                    data-bs-target="#settingsModal"
+                    hx-get="/api/get-room?code={{ room.code }}"
+                    hx-target="#settings-form-content"
+                    hx-trigger="click">
+                <i class="bi bi-gear-fill"></i>
+            </button>
         </div>
 
         <div id="music-player"
@@ -15,64 +35,19 @@
              hx-trigger="every 1000ms"
              hx-swap="innerHTML">
 
-            {% if error %}
-                <div class="alert alert-warning d-flex align-items-center text-start small" role="alert">
-                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                    <div>
-                        <strong>Внимание:</strong> {{ error }}
-                    </div>
-                </div>
-            {% endif %}
-
             <div class="mb-3">
-                <img src="{{ image_url|default:'https://placehold.co/300x300/181818/white?text=No+Music' }}"
-                     alt="Album Cover"
-                     class="img-fluid rounded shadow-lg"
-                     style="max-width: 250px;">
+                 <div class="spinner-border text-success" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                 </div>
+                 <p class="text-secondary mt-2">Connecting to Spotify...</p>
             </div>
 
-            <div class="mb-3">
-                <h3 class="h5 fw-bold mb-0 text-white">{{ title|default:"Нет активного трека" }}</h3>
-                <p class="text-secondary small">{{ artist|default:"Включите музыку в Spotify" }}</p>
-            </div>
-
-            {% if is_playing %}
-            <div class="progress mb-3" style="height: 4px; background-color: #535353;">
-                <div class="progress-bar bg-success" role="progressbar" style="width: {{ progress_percent }}%"></div>
-            </div>
-            {% endif %}
-
-            <div class="d-flex justify-content-center align-items-center gap-3">
-
-                {% if is_host %}
-                    <button class="btn btn-link text-secondary p-0" hx-put="/api/pause" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}' hx-swap="none">
-                        <i class="bi bi-pause-circle-fill" style="font-size: 3rem;"></i>
-                    </button>
-                    <button class="btn btn-link text-white p-0 hover-scale" hx-put="/api/play" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}' hx-swap="none">
-                        <i class="bi bi-play-circle-fill text-success" style="font-size: 4rem;"></i>
-                    </button>
-                {% endif %}
-
-                <button class="btn btn-link p-0 {% if votes > 0 %}text-warning{% else %}text-secondary{% endif %}"
-                        hx-post="/api/skip"
-                        hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
-                        hx-swap="none"
-                        title="Голосовать за пропуск">
-                    <div class="d-flex flex-column align-items-center">
-                        <i class="bi bi-skip-end-fill" style="font-size: 2.5rem;"></i>
-                        <span style="font-size: 0.8rem; font-weight: bold;">
-                            Skip ({{ votes|default:0 }} / {{ votes_required|default:1 }})
-                        </span>
-                    </div>
-                </button>
-
-            </div>
         </div>
 
         <hr class="border-secondary my-4">
 
         <div class="search-section text-start">
-            <h4 class="text-white mb-3 h5">Добавить трек в очередь</h4>
+            <h4 class="text-white mb-3 h5">Add Song to Queue</h4>
 
             <div class="input-group mb-3">
                 <span class="input-group-text bg-dark border-secondary text-secondary">
@@ -81,7 +56,7 @@
                 <input type="text"
                        name="query"
                        class="form-control bg-dark text-white border-secondary"
-                       placeholder="Поиск треков..."
+                       placeholder="Search Spotify tracks..."
                        hx-get="/api/search"
                        hx-trigger="keyup changed delay:500ms"
                        hx-target="#search-results"
@@ -91,19 +66,73 @@
             <div id="search-results" style="max-height: 400px; overflow-y: auto;"></div>
         </div>
 
-        {% if is_host %}
-            <div class="mt-4 alert alert-dark text-white border-0 bg-opacity-10 small">
-                Вы ведущий этой комнаты
-            </div>
-        {% endif %}
-
     </div>
 </div>
+
+<div class="modal fade" id="settingsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content bg-dark text-white border-secondary">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title">Room Settings</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+
+                <form id="settings-form">
+                    <div id="settings-form-content">
+                        <div class="mb-3">
+                            <label class="form-label">Votes to Skip</label>
+                            <input type="number" name="votes_to_skip" class="form-control bg-secondary text-white border-0" value="2">
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" name="guest_can_pause" id="guestPauseCheck">
+                            <label class="form-check-label" for="guestPauseCheck">Guests Can Pause</label>
+                        </div>
+                    </div>
+                </form>
+
+            </div>
+            <div class="modal-footer border-secondary">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+
+                <button class="btn btn-primary"
+                        hx-patch="/api/update-room"
+                        hx-include="#settings-form"
+                        hx-vals='{"code": "{{ room.code }}"}'
+                        hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+                        data-bs-dismiss="modal">
+                    Save Changes
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Слушаем все события HTMX
+    document.body.addEventListener('htmx:afterOnLoad', function(evt) {
+        // Если событие пришло от плеера
+        if (evt.detail.elt.id === 'music-player') {
+            // Пытаемся найти скрытый маркер хоста в ответе (бэкенд должен его присылать)
+            // Или используем простую логику: если кнопка Play видна в ответе, значит мы Хост.
+            const response = evt.detail.xhr.response;
+            const settingsBtn = document.getElementById('settings-btn');
+
+            // Простая проверка: если в HTML ответа есть кнопка "pause" или "play" (доступные только хосту)
+            // То показываем настройки.
+            if (response.includes('hx-put="/api/play"') || response.includes('hx-put="/api/pause"')) {
+                settingsBtn.style.display = 'inline-block';
+            } else {
+                // Если мы потеряли права хоста (редкий кейс), скрываем
+                settingsBtn.style.display = 'none';
+            }
+        }
+    });
+</script>
 
 <style>
     .hover-scale { transition: transform 0.2s; }
     .hover-scale:active { transform: scale(0.95); }
-    /* Скроллбар для результатов поиска */
     #search-results::-webkit-scrollbar { width: 8px; }
     #search-results::-webkit-scrollbar-track { background: #121212; }
     #search-results::-webkit-scrollbar-thumb { background: #535353; border-radius: 4px; }
