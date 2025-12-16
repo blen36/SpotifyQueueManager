@@ -1,3 +1,14 @@
+{% if spotify_not_connected %}
+<div class="text-center text-warning mt-3">
+    <p>Host is not connected to Spotify</p>
+
+    <a href="/get-auth-url"
+       class="btn btn-success rounded-pill mt-2">
+        <i class="bi bi-spotify"></i> Connect Spotify
+    </a>
+</div>
+
+{% else %}
 <div class="list-group">
     {% for song in songs %}
     <div class="list-group-item d-flex align-items-center bg-dark text-white border-secondary">
@@ -9,7 +20,7 @@
         </div>
 
         <button class="btn btn-sm btn-success rounded-pill"
-                hx-post="/api/spotify/queue"
+                hx-post="/api/queue"
                 hx-vals='{"uri": "{{ song.uri }}"}'
                 hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
                 hx-swap="outerHTML">
@@ -17,10 +28,9 @@
         </button>
     </div>
     {% empty %}
-    {% if request.GET.query %}
         <div class="text-center text-secondary mt-3">
             <p>Ничего не найдено</p>
         </div>
-    {% endif %}
     {% endfor %}
 </div>
+{% endif %}

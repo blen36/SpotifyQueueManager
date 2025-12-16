@@ -85,7 +85,7 @@ def execute_spotify_api_request(host_user, endpoint, post_=False, put_=False, da
         elif put_:
             response = requests.put(url, headers=headers, json=data)
         else:
-            response = requests.get(url, {}, headers=headers)
+            response = requests.get(url, headers=headers)
 
         # Пробуем вернуть JSON, если нет — пустой словарь
         if not response.content:

@@ -126,8 +126,19 @@ def spotify_callback(request):
         return redirect('/')
 
     if request.user.is_authenticated:
-        update_or_create_user_tokens(request.user, access_token, response_json.get('token_type'), expires_in,
-                                     refresh_token)
+        update_or_create_user_tokens(
+            request.user,
+            access_token,
+            response_json.get('token_type'),
+            expires_in,
+            refresh_token
+        )
+
+        # 🔥 ВАЖНО: возвращаемся В КОМНАТУ
+        room_code = request.session.get('room_code')
+        if room_code:
+            return redirect(f'/room/{room_code}/')
+
         return redirect('/')
     else:
         return redirect('/')
@@ -204,15 +215,34 @@ class SkipSong(APIView):
 
 class SearchSong(APIView):
     def get(self, request, format=None):
-        room_code = self.request.session.get('room_code')
+        room_code = request.session.get('room_code')
         room = Room.objects.filter(code=room_code).first()
-        if not room: return Response({}, status=status.HTTP_404_NOT_FOUND)
+        if not room:
+            return Response({}, status=status.HTTP_404_NOT_FOUND)
 
         query = request.GET.get('query')
-        if not query: return Response('')
+        if not query:
+            return render(request, 'jukebox/partials/search_results.html', {'songs': []})
 
-        results = search_spotify(room.host, query)  # Теперь эта функция существует
-        return render(request, 'jukebox/partials/search_results.html', {'songs': results})
+        # 🔴 ВАЖНО: проверяем, авторизован ли ХОСТ в Spotify
+        if not is_spotify_authenticated(room.host):
+            return render(
+                request,
+                'jukebox/partials/search_results.html',
+                {
+                    'songs': [],
+                    'spotify_not_connected': True
+                }
+            )
+
+        # 🔴 Поиск ТОЛЬКО от имени хоста
+        songs = search_spotify(room.host, query)
+
+        return render(
+            request,
+            'jukebox/partials/search_results.html',
+            {'songs': songs}
+        )
 
 
 class AddToQueue(APIView):

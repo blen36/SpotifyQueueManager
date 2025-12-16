@@ -4,6 +4,7 @@
 <div class="row justify-content-center mt-4">
     <div class="col-md-6 col-lg-5 text-center">
 
+        <!-- Верхняя панель -->
         <div class="d-flex justify-content-between align-items-center mb-4">
 
             <button class="btn btn-outline-danger btn-sm"
@@ -29,74 +30,83 @@
             </button>
         </div>
 
-        <div id="music-player"
-             class="glass-panel p-4 mb-4"
-             hx-get="/api/current-song"
-             hx-trigger="every 1000ms"
-             hx-swap="innerHTML">
+        <!-- Блок статуса Spotify -->
+        <div id="spotify-status"
+             class="alert alert-warning text-center mb-4"
+             style="display: none;">
+            <p class="mb-2 fw-bold">
+                Host must connect Spotify to enable music control
+            </p>
+            <button id="connect-spotify-btn"
+                    class="btn btn-success btn-sm">
+                <i class="bi bi-spotify"></i> Connect Spotify
+            </button>
+        </div>
 
-            <div class="mb-3">
-                 <div class="spinner-border text-success" role="status">
-                    <span class="visually-hidden">Loading...</span>
-                 </div>
-                 <p class="text-secondary mt-2">Connecting to Spotify...</p>
+        <!-- ВСЕ функции Spotify -->
+        <div id="spotify-features">
+
+            <!-- Плеер -->
+            <div id="music-player"
+                 class="glass-panel p-4 mb-4"
+                 hx-get="/api/current-song"
+                 hx-trigger="every 1000ms"
+                 hx-swap="innerHTML">
+
+                <div class="mb-3">
+                     <div class="spinner-border text-success" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                     </div>
+                     <p class="text-secondary mt-2">Connecting to Spotify...</p>
+                </div>
+            </div>
+
+            <hr class="border-secondary my-4">
+
+            <!-- Поиск -->
+            <div class="search-section text-start">
+                <h4 class="text-white mb-3 h5">Add Song to Queue</h4>
+
+                <div class="input-group mb-3">
+                    <span class="input-group-text bg-dark border-secondary text-secondary">
+                        <i class="bi bi-search"></i>
+                    </span>
+                    <input type="text"
+                           name="query"
+                           class="form-control bg-dark text-white border-secondary"
+                           placeholder="Search Spotify tracks..."
+                           hx-get="/api/spotify/search"
+                           hx-trigger="keyup changed delay:500ms"
+                           hx-target="#search-results"
+                           autocomplete="off">
+                </div>
+
+                <div id="search-results"
+                     style="max-height: 400px; overflow-y: auto;">
+                </div>
             </div>
 
         </div>
-
-        <hr class="border-secondary my-4">
-
-        <div class="search-section text-start">
-            <h4 class="text-white mb-3 h5">Add Song to Queue</h4>
-
-            <div class="input-group mb-3">
-                <span class="input-group-text bg-dark border-secondary text-secondary">
-                    <i class="bi bi-search"></i>
-                </span>
-                <input type="text"
-                       name="query"
-                       class="form-control bg-dark text-white border-secondary"
-                       placeholder="Search Spotify tracks..."
-                       hx-get="/api/spotify/search"
-                       hx-trigger="keyup changed delay:500ms"
-                       hx-target="#search-results"
-                       autocomplete="off">
-            </div>
-
-            <div id="search-results" style="max-height: 400px; overflow-y: auto;"></div>
-        </div>
-
     </div>
 </div>
 
+<!-- МОДАЛКА НАСТРОЕК -->
 <div class="modal fade" id="settingsModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content bg-dark text-white border-secondary">
             <div class="modal-header border-secondary">
                 <h5 class="modal-title">Room Settings</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-
                 <form id="settings-form">
-                    <div id="settings-form-content">
-                        <div class="mb-3">
-                            <label class="form-label">Votes to Skip</label>
-                            <input type="number" name="votes_to_skip" class="form-control bg-secondary text-white border-0" value="2">
-                        </div>
-                        <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" name="guest_can_pause" id="guestPauseCheck">
-                            <label class="form-check-label" for="guestPauseCheck">Guests Can Pause</label>
-                        </div>
-                    </div>
+                    <div id="settings-form-content"></div>
                 </form>
-
             </div>
             <div class="modal-footer border-secondary">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-
                 <button class="btn btn-primary"
-                        hx-patch="/api/update-room"
+                        hx-patch="/update-room"
                         hx-include="#settings-form"
                         hx-vals='{"code": "{{ room.code }}"}'
                         hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
@@ -108,33 +118,36 @@
     </div>
 </div>
 
+<!-- JS ЛОГИКА -->
 <script>
-    // Слушаем все события HTMX
-    document.body.addEventListener('htmx:afterOnLoad', function(evt) {
-        // Если событие пришло от плеера
-        if (evt.detail.elt.id === 'music-player') {
-            // Пытаемся найти скрытый маркер хоста в ответе (бэкенд должен его присылать)
-            // Или используем простую логику: если кнопка Play видна в ответе, значит мы Хост.
-            const response = evt.detail.xhr.response;
-            const settingsBtn = document.getElementById('settings-btn');
+document.addEventListener("DOMContentLoaded", function () {
 
-            // Простая проверка: если в HTML ответа есть кнопка "pause" или "play" (доступные только хосту)
-            // То показываем настройки.
-            if (response.includes('hx-put="/api/play"') || response.includes('hx-put="/api/pause"')) {
-                settingsBtn.style.display = 'inline-block';
-            } else {
-                // Если мы потеряли права хоста (редкий кейс), скрываем
-                settingsBtn.style.display = 'none';
+    const isHost = {{ is_host|yesno:"true,false" }};
+    const statusBlock = document.getElementById("spotify-status");
+    const featuresBlock = document.getElementById("spotify-features");
+    const connectBtn = document.getElementById("connect-spotify-btn");
+
+    if (!isHost) {
+        return; // гость не управляет Spotify
+    }
+
+    fetch("/is-authenticated")
+        .then(res => res.json())
+        .then(data => {
+            if (!data.status) {
+                statusBlock.style.display = "block";
+                featuresBlock.style.display = "none";
             }
-        }
-    });
-</script>
+        });
 
-<style>
-    .hover-scale { transition: transform 0.2s; }
-    .hover-scale:active { transform: scale(0.95); }
-    #search-results::-webkit-scrollbar { width: 8px; }
-    #search-results::-webkit-scrollbar-track { background: #121212; }
-    #search-results::-webkit-scrollbar-thumb { background: #535353; border-radius: 4px; }
-</style>
+    connectBtn?.addEventListener("click", function () {
+        fetch("/get-auth-url")
+            .then(res => res.json())
+            .then(data => {
+                window.location.href = data.url;
+            });
+    });
+
+});
+</script>
 {% endblock %}
