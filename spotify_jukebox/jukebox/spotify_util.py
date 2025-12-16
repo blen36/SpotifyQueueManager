@@ -166,7 +166,7 @@ def search_spotify(host_user, query):
         artist_names = ", ".join([artist['name'] for artist in track['artists']])
 
         results.append({
-            'name': track['name'],
+            'title': track['name'],
             'artist': artist_names,
             'image_url': track['album']['images'][-1]['url'] if track['album']['images'] else '',
             'uri': track['uri'],  # URI нужен для добавления в очередь

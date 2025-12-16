@@ -9,7 +9,7 @@
         </div>
 
         <button class="btn btn-sm btn-success rounded-pill"
-                hx-post="/api/queue"
+                hx-post="/api/spotify/queue"
                 hx-vals='{"uri": "{{ song.uri }}"}'
                 hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
                 hx-swap="outerHTML">
