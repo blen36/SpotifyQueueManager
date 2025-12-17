@@ -322,22 +322,25 @@ class AddToQueue(APIView):
         if not uri:
             return Response({'error': 'No URI'}, status=400)
 
-        # 1️⃣ Добавляем в Spotify
-        is_spotify_authenticated(room.host)
-        add_to_queue(room.host, uri)
-
-        # 2️⃣ СОХРАНЯЕМ В БД (ВОТ ЧЕГО НЕ ХВАТАЛО)
-        Track.objects.create(
+        # 1. Сначала сохраняем в нашу базу (чтобы гость сразу увидел песню)
+        track = Track.objects.create(
             room=room,
-            added_by=request.user,
+            added_by=request.user if request.user.is_authenticated else room.host,
             title=title,
             artist=artist,
             spotify_uri=uri,
             album_cover_url=image_url
         )
 
-        return Response({}, status=204)
+        # 2. Потом отправляем в Spotify
+        try:
+            is_spotify_authenticated(room.host)
+            add_to_queue(room.host, uri)
+        except Exception as e:
+            print(f"Spotify Queue Error: {e}")
+            # Мы не удаляем трек из базы, даже если Spotify временно недоступен
 
+        return Response({}, status=204)
 
 class VoteToSkip(APIView):
     def post(self, request, format=None):

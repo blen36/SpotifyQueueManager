@@ -1,8 +1,7 @@
 {% if spotify_not_connected %}
 <div class="text-center text-warning mt-3">
     <p>Host is not connected to Spotify</p>
-    <a href="/api/get-auth-url"
-       class="btn btn-success rounded-pill mt-2">
+    <a href="/api/get-auth-url" class="btn btn-success rounded-pill mt-2">
         <i class="bi bi-spotify"></i> Connect Spotify
     </a>
 </div>
@@ -12,11 +11,7 @@
     {% for song in songs %}
     <div class="list-group-item d-flex align-items-center bg-dark text-white border-secondary mb-2 rounded">
 
-        <img src="{{ song.image_url }}"
-             alt="{{ song.title }}"
-             class="rounded me-3"
-             width="50"
-             height="50">
+        <img src="{{ song.image_url }}" alt="{{ song.title }}" class="rounded me-3" width="50" height="50">
 
         <div class="flex-grow-1">
             <h6 class="mb-0 fw-bold">{{ song.title }}</h6>
@@ -32,12 +27,14 @@
                     "image_url": "{{ song.image_url }}"
                 }'
                 hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
-                hx-swap="outerHTML"
+                hx-swap="none"
                 hx-on::after-request="
-                    this.innerHTML='Added!';
+                    this.innerHTML='<i class=\'bi bi-check-lg\'></i> Added';
                     this.disabled=true;
                     this.classList.remove('btn-success');
-                    this.classList.add('btn-outline-secondary')
+                    this.classList.add('btn-outline-secondary');
+                    /* Обновляем очередь мгновенно */
+                    htmx.trigger('#queue-content', 'load');
                 ">
             <i class="bi bi-plus-lg"></i> Add
         </button>

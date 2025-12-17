@@ -65,15 +65,17 @@ def refresh_spotify_token(user_tokens):
 def execute_spotify_api_request(host_user, endpoint, post_=False, put_=False, data=None):
     tokens = get_user_tokens(host_user)
     if not tokens:
-        return {'error': 'User not authenticated'}  # Пишем error с маленькой
+        return {'error': 'User not authenticated'}
 
     refresh_spotify_token(tokens)
 
-    headers = {'Content-Type': 'application/json', 'Authorization': "Bearer " + tokens.access_token}
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': "Bearer " + tokens.access_token
+    }
 
-    # ИСПРАВЛЕНИЕ: Убедись, что BASE_URL заканчивается на /, а endpoint НЕ начинается с него,
-    # или используй правильную склейку:
-    url = f"https://api.spotify.com/v1/{endpoint}"  # Используй прямой URL для надежности
+    # ИСПРАВЛЕНО: Добавлен слэш между базовым URL и эндпоинтом
+    url = f"https://api.spotify.com/v1/{endpoint}"
 
     try:
         if post_:
@@ -83,17 +85,16 @@ def execute_spotify_api_request(host_user, endpoint, post_=False, put_=False, da
         else:
             response = requests.get(url, headers=headers)
 
-        # Spotify возвращает 204, если плеер неактивен. Это НЕ ошибка, это просто пустота.
         if response.status_code == 204:
             return {'no_content': True}
 
-        if not response.content:
-            return {}
+        # Если Spotify вернул ошибку (например 403 или 404)
+        if not response.ok:
+            return {'error': response.text}
 
         return response.json()
     except Exception as e:
         return {'error': str(e)}
-
 
 def get_current_song(user):
     endpoint = "me/player/currently-playing"  # ИСПРАВЛЕНО: me/player/...
