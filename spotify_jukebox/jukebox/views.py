@@ -14,6 +14,7 @@ import base64
 import requests
 from django.http import HttpResponse
 from .serializers import RoomSerializer, CreateRoomSerializer, UpdateRoomSerializer
+from django.template.loader import render_to_string
 
 
 def home(request):
@@ -48,7 +49,6 @@ def join_room(request):
     else:
         form = JoinRoomForm()
     return render(request, 'jukebox/join_room.html', {'form': form})
-
 
 def room(request, room_code):
     room_qs = Room.objects.filter(code=room_code)
@@ -152,21 +152,51 @@ class IsAuthenticated(APIView):
 
 class CurrentSong(APIView):
     def get(self, request, format=None):
+        # 1. Ищем комнату
         room_code = self.request.session.get('room_code')
         room = Room.objects.filter(code=room_code).first()
 
+        if not room and request.user.is_authenticated:
+            room = Room.objects.filter(host=request.user).last()
+
         if not room:
-            return Response({}, status=status.HTTP_404_NOT_FOUND)
+            return render(request, 'jukebox/song.html', {'is_playing': False})
 
-        song = get_current_song(room.host)  # Передаем Host User Object
+        host = room.host
+        is_spotify_authenticated(host)
 
-        if not song:  # Исправлена проверка на пустой словарь
-            return Response({'is_playing': False}, status=status.HTTP_200_OK)
+        song_info = get_current_song(host)
+        print(f"DEBUG API Response for {host.username}: {song_info}")
 
-        # ИСПРАВЛЕНО: Проверка is_host через request.user
-        song['is_host'] = request.user.is_authenticated and room.host == request.user
-        return Response(song, status=status.HTTP_200_OK)
+        # 2. ПРОВЕРКА: Если данные есть, мы ДОЛЖНЫ их вернуть
+        if song_info and 'id' in song_info:
+            duration = song_info.get('duration', 0)
+            current_time = song_info.get('time', 0)
 
+            # Расчет прогресса
+            progress = (current_time / duration * 100) if duration > 0 else 0
+
+            # Формируем контекст из song_info
+            context = {
+                'title': song_info.get('title'),
+                'artist': song_info.get('artist'),
+                'image_url': song_info.get('image_url'),
+                'is_playing': song_info.get('is_playing'),
+                'votes': song_info.get('votes', 0),
+                'votes_required': room.votes_to_skip,  # Берем из модели комнаты
+                'progress_percent': progress,
+                'display_time': f"{int((current_time / 1000) // 60)}:{int((current_time / 1000) % 60):02d}",
+                'display_duration': f"{int((duration / 1000) // 60)}:{int((duration / 1000) % 60):02d}",
+                'is_host': (request.user == host)
+            }
+            # ОТПРАВЛЯЕМ ДАННЫЕ В ШАБЛОН (Этого не было!)
+            return render(request, 'jukebox/song.html', context)
+
+        # 3. Если данных нет или Spotify вернул {}, только тогда отдаем False
+        return render(request, 'jukebox/song.html', {
+            'is_playing': False,
+            'error_message': "No active device found. Play music on Spotify!"
+        })
 
 class PauseSong(APIView):
     def put(self, request, format=None):

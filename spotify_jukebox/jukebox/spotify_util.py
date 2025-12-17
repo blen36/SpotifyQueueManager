@@ -63,63 +63,60 @@ def refresh_spotify_token(user_tokens):
 
 
 def execute_spotify_api_request(host_user, endpoint, post_=False, put_=False, data=None):
-    """
-    Универсальная функция для отправки запросов к Spotify API.
-    Автоматически обновляет токен перед запросом.
-    Добавлен аргумент data для отправки тела запроса (например, для очереди).
-    """
     tokens = get_user_tokens(host_user)
     if not tokens:
-        return {'Error': 'User not authenticated with Spotify'}
+        return {'error': 'User not authenticated'}  # Пишем error с маленькой
 
-    # 1. Гарантируем свежесть токена перед запросом
     refresh_spotify_token(tokens)
 
     headers = {'Content-Type': 'application/json', 'Authorization': "Bearer " + tokens.access_token}
-    url = BASE_URL + endpoint
 
-    # 2. Выполняем запрос
+    # ИСПРАВЛЕНИЕ: Убедись, что BASE_URL заканчивается на /, а endpoint НЕ начинается с него,
+    # или используй правильную склейку:
+    url = f"https://api.spotify.com/v1/{endpoint}"  # Используй прямой URL для надежности
+
     try:
         if post_:
-            response = requests.post(url, headers=headers, json=data)  # ИСПРАВЛЕНО: передаем json=data
+            response = requests.post(url, headers=headers, json=data)
         elif put_:
             response = requests.put(url, headers=headers, json=data)
         else:
             response = requests.get(url, headers=headers)
 
-        # Пробуем вернуть JSON, если нет — пустой словарь
+        # Spotify возвращает 204, если плеер неактивен. Это НЕ ошибка, это просто пустота.
+        if response.status_code == 204:
+            return {'no_content': True}
+
         if not response.content:
             return {}
-        return response.json()
 
+        return response.json()
     except Exception as e:
-        return {'Error': f'Request failed: {str(e)}'}
+        return {'error': str(e)}
 
 
 def get_current_song(user):
-    """Получает информацию о текущем проигрываемом треке."""
-    endpoint = "player/currently-playing"
+    endpoint = "me/player/currently-playing"  # ИСПРАВЛЕНО: me/player/...
     response = execute_spotify_api_request(user, endpoint)
 
-    if 'error' in response or 'item' not in response:
+    # Если в ответе ошибка или нет данных о треке
+    if 'error' in response or 'item' not in response or response.get('no_content'):
         return {}
 
     item = response.get('item')
+    # Проверка на None для item (бывает при переключении треков)
+    if not item:
+        return {}
+
     duration = item.get('duration_ms')
     progress = response.get('progress_ms')
-    album_cover = item.get('album').get('images')[0].get('url')
+    album_cover = item.get('album', {}).get('images', [{}])[0].get('url', '')
     is_playing = response.get('is_playing')
     song_id = item.get('id')
 
-    # Формируем строку артистов (Artist1, Artist2...)
-    artist_names = ""
-    for i, artist in enumerate(item.get('artists')):
-        if i > 0:
-            artist_names += ", "
-        name = artist.get('name')
-        artist_names += name
+    artist_names = ", ".join([artist.get('name') for artist in item.get('artists', [])])
 
-    song = {
+    return {
         'title': item.get('name'),
         'artist': artist_names,
         'duration': duration,
@@ -129,9 +126,6 @@ def get_current_song(user):
         'votes': 0,
         'id': song_id
     }
-
-    return song
-
 
 def pause_song(host_user):
     return execute_spotify_api_request(host_user, "me/player/pause", put_=True)

@@ -49,7 +49,7 @@
             <!-- Плеер -->
             <div id="music-player"
                  class="glass-panel p-4 mb-4"
-                 hx-get="/api/current-song"
+                 hx-get="/api/current-song/"
                  hx-trigger="every 1000ms"
                  hx-swap="innerHTML">
 
@@ -127,21 +127,35 @@ document.addEventListener("DOMContentLoaded", function () {
     const featuresBlock = document.getElementById("spotify-features");
     const connectBtn = document.getElementById("connect-spotify-btn");
 
+    // Если это гость - ему не нужно проверять подключение Spotify хоста через этот скрипт,
+    // но если вы хотите скрывать плеер у гостя, пока хост не подключился, логику нужно расширить.
+    // Пока оставим как у вас:
     if (!isHost) {
-        return; // гость не управляет Spotify
+        return;
     }
 
-    fetch("/is-authenticated")
-        .then(res => res.json())
+    // 1. ИСПРАВЛЕНО: Добавлен префикс /api/
+    fetch("/api/is-authenticated")
+        .then(res => {
+            if (!res.ok) throw new Error("API Error");
+            return res.json();
+        })
         .then(data => {
+            // Если статус false (не подключен) -> показываем кнопку, скрываем плеер
             if (!data.status) {
                 statusBlock.style.display = "block";
-                featuresBlock.style.display = "none";
+                featuresBlock.style.display = "none"; // Скрываем плеер и поиск
+            } else {
+                // Если подключен -> скрываем кнопку, показываем плеер
+                statusBlock.style.display = "none";
+                featuresBlock.style.display = "block";
             }
-        });
+        })
+        .catch(err => console.error("Error checking auth:", err));
 
+    // 2. ИСПРАВЛЕНО: Добавлен префикс /api/
     connectBtn?.addEventListener("click", function () {
-        fetch("/get-auth-url")
+        fetch("/api/get-auth-url")
             .then(res => res.json())
             .then(data => {
                 window.location.href = data.url;
