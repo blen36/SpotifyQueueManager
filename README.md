@@ -56,30 +56,6 @@
 
 ---
 
-## 🧱 Архитектура проекта
-
-spotify_jukebox/
-│
-├── config/ # Django settings, urls, wsgi, asgi
-│
-├── jukebox/ # Основное приложение
-│ ├── models.py # Room, Vote, SpotifyToken
-│ ├── views.py # API и HTML-вьюхи
-│ ├── spotify_util.py # Работа с Spotify API
-│ ├── urls.py # URL-маршруты
-│ ├── templates/
-│ │ └── jukebox/
-│ │ ├── room.html
-│ │ ├── home.html
-│ │ └── partials/
-│ └── static/
-│
-└── manage.py
-
-yaml
-
----
-
 ## 🔐 Роли пользователей
 
 ### Хост
