@@ -174,3 +174,7 @@ def add_to_queue(host_user, uri):
     """Добавляет трек в очередь воспроизведения."""
     endpoint = f"me/player/queue?uri={uri}"
     execute_spotify_api_request(host_user, endpoint, post_=True)
+
+def prev_song(host_user):
+    # Конечная точка me/player/previous переключает на прошлый трек
+    return execute_spotify_api_request(host_user, "me/player/previous", post_=True)

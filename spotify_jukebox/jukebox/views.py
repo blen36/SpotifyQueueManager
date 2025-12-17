@@ -166,7 +166,6 @@ class CurrentSong(APIView):
         is_spotify_authenticated(host)
 
         song_info = get_current_song(host)
-        print(f"DEBUG API Response for {host.username}: {song_info}")
 
         # 2. ПРОВЕРКА: Если данные есть, мы ДОЛЖНЫ их вернуть
         if song_info and 'id' in song_info:
@@ -275,16 +274,39 @@ class SearchSong(APIView):
         )
 
 
-class AddToQueue(APIView):
+class PrevSong(APIView):
     def post(self, request, format=None):
         room_code = self.request.session.get('room_code')
         room = Room.objects.filter(code=room_code).first()
-        if not room: return Response({}, status=status.HTTP_404_NOT_FOUND)
 
-        uri = request.data.get('uri')
-        add_to_queue(room.host, uri)  # Теперь эта функция существует
+        # Только хост может переключать назад
+        if request.user.is_authenticated and room.host == request.user:
+            from .spotify_util import prev_song  # Импорт функции
+            prev_song(room.host)
+            return Response({}, status=status.HTTP_204_NO_CONTENT)
+
+        return Response({}, status=status.HTTP_403_FORBIDDEN)
+
+class AddToQueue(APIView):
+    def post(self, request, format=None):
+        # 1. Ищем комнату
+        room_code = request.session.get('room_code')
+        room = Room.objects.filter(code=room_code).first()
+        if not room:
+            return Response({'Error': 'Room not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        # 2. Получаем URI (пробуем и из JSON, и из обычной формы)
+        uri = request.data.get('uri') or request.POST.get('uri')
+
+        if not uri:
+            return Response({'Error': 'No URI provided'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # 3. Добавляем в очередь через утилиту
+        # Убедимся, что токен свежий
+        is_spotify_authenticated(room.host)
+        add_to_queue(room.host, uri)
+
         return Response({}, status=status.HTTP_204_NO_CONTENT)
-
 
 class VoteToSkip(APIView):
     def post(self, request, format=None):
