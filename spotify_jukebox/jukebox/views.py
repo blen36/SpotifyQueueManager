@@ -1,7 +1,7 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from .models import Room, Vote, Track
-from .forms import CreateRoomForm, JoinRoomForm
+from .forms import CreateRoomForm, JoinRoomForm, UserRegisterForm
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -15,7 +15,10 @@ import requests
 from django.http import HttpResponse
 from .serializers import RoomSerializer, CreateRoomSerializer, UpdateRoomSerializer
 from django.template.loader import render_to_string
-
+from django.shortcuts import render, redirect
+from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth import login
+from django.contrib import messages
 
 def home(request):
     return render(request, 'jukebox/home.html')
@@ -450,3 +453,15 @@ class GetQueue(APIView):
             'jukebox/partials/queue.html',
             {'tracks': tracks}
         )
+
+def register(request):
+    if request.method == 'POST':
+        form = UserRegisterForm(request.POST)
+        if form.is_valid():
+            form.save() # Сохраняем пользователя в PostgreSQL через Docker
+            username = form.cleaned_data.get('username')
+            messages.success(request, f'Аккаунт создан для {username}!')
+            return redirect('login') # После регистрации отправляем на вход
+    else:
+        form = UserRegisterForm()
+    return render(request, 'jukebox/register.html', {'form': form})

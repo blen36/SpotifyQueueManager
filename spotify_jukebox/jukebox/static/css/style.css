@@ -78,3 +78,27 @@ body {
     box-shadow: 0 8px 24px rgba(0,0,0,0.5);
     color: var(--text-secondary);
 }
+
+/* Делаем все инпуты от Django красивыми */
+form input, form select, form textarea {
+    display: block;
+    width: 100%;
+    padding: 0.375rem 0.75rem;
+    font-size: 1rem;
+    font-weight: 400;
+    line-height: 1.5;
+    color: white;
+    background-color: #121212; /* Цвет Spotify */
+    background-clip: padding-box;
+    border: 1px solid #404040;
+    border-radius: 4px;
+    transition: border-color .15s ease-in-out, box-shadow .15s ease-in-out;
+}
+
+form input:focus {
+    background-color: #121212;
+    color: white;
+    border-color: #1DB954; /* Зеленый при фокусе */
+    outline: 0;
+    box-shadow: 0 0 0 0.25rem rgba(29, 185, 84, 0.25);
+}

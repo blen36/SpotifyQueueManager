@@ -1,0 +1,51 @@
+{% extends 'jukebox/base.html' %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card bg-dark text-white border-secondary shadow">
+            <div class="card-body p-5">
+                <h2 class="text-center mb-4">Регистрация в JamQueue</h2>
+                
+                <form method="POST">
+                    {% csrf_token %}
+                    
+                    {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {% for error in form.non_field_errors %}
+                                {{ error }}
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+
+                    {% for field in form %}
+                        <div class="mb-3">
+                            <label class="form-label">{{ field.label }}</label>
+                            
+                            <div class="{% if field.errors %}is-invalid{% endif %}">
+                                {{ field }}
+                            </div>
+
+                            {% if field.errors %}
+                                {% for error in field.errors %}
+                                    <div class="text-danger small mt-1">
+                                        <i class="bi bi-exclamation-circle"></i> {{ error }}
+                                    </div>
+                                {% endfor %}
+                            {% endif %}
+                            
+                            {% if field.help_text %}
+                                <div class="form-text text-secondary small">{{ field.help_text }}</div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                    
+                    <div class="d-grid gap-2 mt-4">
+                        <button type="submit" class="btn btn-spotify btn-lg">Создать аккаунт</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,36 @@
+{% extends 'jukebox/base.html' %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-5">
+        <div class="card bg-dark text-white border-secondary shadow">
+            <div class="card-body p-5">
+                <h2 class="text-center mb-4">Вход в JamQueue</h2>
+                
+                <form method="POST">
+                    {% csrf_token %}
+
+                    {% if form.errors or form.non_field_errors %}
+                        <div class="alert alert-danger py-2 small">
+                            <i class="bi bi-shield-lock"></i> Неверное имя пользователя или пароль.
+                        </div>
+                    {% endif %}
+
+                    <div class="mb-3">
+                        <label class="form-label text-secondary small">Имя пользователя</label>
+                        <input type="text" name="username" class="form-control bg-dark text-white border-secondary" required>
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label text-secondary small">Пароль</label>
+                        <input type="password" name="password" class="form-control bg-dark text-white border-secondary" required>
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-spotify btn-lg">Войти</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
