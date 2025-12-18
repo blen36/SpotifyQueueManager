@@ -38,7 +38,7 @@
             <div id="music-player"
                  class="glass-panel p-4 mb-3"
                  hx-get="/api/current-song/"
-                 hx-trigger="every 1000ms"
+                 hx-trigger="load, every 2s"
                  hx-swap="innerHTML">
                 <div class="text-secondary">Loading player…</div>
             </div>
@@ -131,15 +131,22 @@ document.addEventListener("DOMContentLoaded", function () {
         .then(data => {
             if (!data.status) {
                 statusBlock.style.display = "block";
-                featuresBlock.style.display = "none";
+                {% if not is_host %}
+                // Меняем текст для гостя, чтобы он не искал кнопку
+                statusBlock.innerHTML = '<p class="mb-0 fw-bold">Waiting for the host to connect Spotify...</p>';
+                {% endif %}
             }
         });
 
+    {% if is_host %}
     connectBtn?.addEventListener("click", () => {
         fetch("/api/get-auth-url")
             .then(r => r.json())
-            .then(data => window.location.href = data.url);
+            .then(data => {
+                if (data.url) window.location.href = data.url;
+            });
     });
+    {% endif %}
 });
 </script>
 {% endif %}

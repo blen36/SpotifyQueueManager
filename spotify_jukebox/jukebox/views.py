@@ -70,14 +70,9 @@ def room(request, room_code):
 
 class AuthURL(APIView):
     def get(self, request, format=None):
-        scopes = (
-            'user-read-playback-state '
-            'user-modify-playback-state '
-            'user-read-currently-playing '
-            'playlist-read-private '
-            'playlist-modify-public '
-            'user-read-email'
-        )
+        scopes = 'user-read-playback-state user-modify-playback-state user-read-currently-playing playlist-read-private playlist-modify-public user-read-email'
+
+        # РЕАЛЬНЫЙ URL Spotify
         spotify_auth_url = 'https://accounts.spotify.com/authorize'
 
         url = Request('GET', spotify_auth_url, params={
@@ -89,7 +84,6 @@ class AuthURL(APIView):
         }).prepare().url
 
         return Response({'url': url}, status=status.HTTP_200_OK)
-
 
 def check_user_session(request):
     if not request.session.exists(request.session.session_key):
@@ -155,47 +149,49 @@ class IsAuthenticated(APIView):
 
 class CurrentSong(APIView):
     def get(self, request, format=None):
-        # 1. Ищем комнату
+        # 1. Пытаемся достать код комнаты из сессии
         room_code = request.session.get('room_code')
         room = Room.objects.filter(code=room_code).first()
 
+        # 2. Если в сессии пусто, но юзер авторизован - ищем его как хоста
         if not room and request.user.is_authenticated:
             room = Room.objects.filter(host=request.user).last()
+            if room:
+                request.session['room_code'] = room.code  # Восстанавливаем сессию
 
+        # 3. Если комнату так и не нашли
         if not room:
-            return render(request, 'jukebox/song.html', {'is_playing': False})
+            return render(request, 'jukebox/song.html', {
+                'is_playing': False,
+                'error_message': "Room not found. Please join again."
+            })
 
         host = room.host
-        is_spotify_authenticated(host)
 
-        # 2. Получаем текущий трек Spotify
+        # 4. Проверяем авторизацию в Spotify (и обновляем токен если надо)
+        if not is_spotify_authenticated(host):
+            return render(request, 'jukebox/song.html', {
+                'is_playing': False,
+                'needs_auth': True,  # Флаг для шаблона, чтобы показать кнопку Connect
+                'is_host': (request.user == host)
+            })
+
+        # 5. Получаем текущий трек
         song_info = get_current_song(host)
 
-        # ---- 🔥 СИНХРОНИЗАЦИЯ ОЧЕРЕДИ ----
+        # Синхронизация очереди (удаляем трек из БД, если он заиграл в Spotify)
         if song_info and 'id' in song_info:
             current_spotify_id = song_info['id']
-
-            # Берём первый трек очереди
-            first_track = (
-                Track.objects
-                .filter(room=room)
-                .order_by('added_at')
-                .first()
-            )
-
+            first_track = Track.objects.filter(room=room).order_by('added_at').first()
             if first_track:
-                # spotify_uri = spotify:track:XXXX
                 queued_spotify_id = first_track.spotify_uri.split(':')[-1]
-
-                # Если сейчас играет первый трек очереди — удаляем его
                 if queued_spotify_id == current_spotify_id:
                     first_track.delete()
 
-        # 3. Если есть данные о треке — формируем контекст
+        # 6. Если данные есть — формируем контекст
         if song_info and 'id' in song_info:
             duration = song_info.get('duration', 0)
             current_time = song_info.get('time', 0)
-
             progress = (current_time / duration * 100) if duration > 0 else 0
 
             context = {
@@ -203,17 +199,16 @@ class CurrentSong(APIView):
                 'artist': song_info.get('artist'),
                 'image_url': song_info.get('image_url'),
                 'is_playing': song_info.get('is_playing'),
-                'votes': song_info.get('votes', 0),
+                'votes': Vote.objects.filter(room=room, song_id=song_info.get('id')).count(),
                 'votes_required': room.votes_to_skip,
                 'progress_percent': progress,
                 'display_time': f"{int((current_time / 1000) // 60)}:{int((current_time / 1000) % 60):02d}",
                 'display_duration': f"{int((duration / 1000) // 60)}:{int((duration / 1000) % 60):02d}",
                 'is_host': (request.user == host),
             }
-
             return render(request, 'jukebox/song.html', context)
 
-        # 4. Если Spotify ничего не играет
+        # 7. Если Spotify открыт, но ничего не играет
         return render(request, 'jukebox/song.html', {
             'is_playing': False,
             'error_message': "No active device found. Play music on Spotify!"
