@@ -27,12 +27,31 @@
             {% endif %}
         </div>
 
-        <div id="spotify-status" class="alert alert-warning text-center mb-4" style="display:none;">
-            <p class="mb-2 fw-bold">Host must connect Spotify to enable music control</p>
-            <button id="connect-spotify-btn" class="btn btn-success btn-sm">
-                <i class="bi bi-spotify"></i> Connect Spotify
-            </button>
+        <div id="spotify-status"
+            class="alert alert-warning text-center mb-4"
+            {% if spotify_connected %}style="display:none;"{% endif %}>
+
+            {% if is_host %}
+                <p class="mb-2 fw-bold">
+                    Spotify не подключён к комнате
+                </p>
+                <button id="connect-spotify-btn" class="btn btn-success btn-sm">
+                    <i class="bi bi-spotify"></i> Connect Spotify
+                </button>
+            {% else %}
+                <p class="mb-0 fw-bold">
+                    Ожидание подключения Spotify хостом комнаты
+                </p>
+            {% endif %}
         </div>
+
+        {% if spotify_connected %}
+        <div class="alert alert-success text-center mb-4">
+            <i class="bi bi-check-circle"></i>
+            Spotify подключён (аккаунт: <b>{{ spotify_user }}</b>)
+        </div>
+        {% endif %}
+
 
         <div id="spotify-features">
             <div id="music-player"
@@ -121,20 +140,7 @@
 
 <script>
 document.addEventListener("DOMContentLoaded", function () {
-    const statusBlock = document.getElementById("spotify-status");
     const connectBtn = document.getElementById("connect-spotify-btn");
-
-    // Проверка авторизации работает для всех
-    fetch("/api/is-authenticated/")
-        .then(res => res.json())
-        .then(data => {
-            if (!data.status) {
-                statusBlock.style.display = "block";
-                {% if not is_host %}
-                statusBlock.innerHTML = '<p class="mb-0 fw-bold text-center">Waiting for the host to connect Spotify...</p>';
-                {% endif %}
-            }
-        });
 
     // Кнопка коннекта только для хоста
     {% if is_host %}

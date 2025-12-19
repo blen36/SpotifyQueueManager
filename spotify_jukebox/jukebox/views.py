@@ -1,6 +1,6 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
-from .models import Room, Vote, Track
+from .models import Room, Vote, Track, SpotifyToken
 from .forms import CreateRoomForm, JoinRoomForm, UserRegisterForm
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -57,17 +57,23 @@ def join_room(request):
 @login_required(login_url='/login/')
 def room(request, room_code):
     room_qs = Room.objects.filter(code=room_code)
-    if room_qs.exists():
-        room = room_qs.first()
-        # ИСПРАВЛЕНО: Сравнение объектов User, а не строк
-        is_host = request.user.is_authenticated and room.host == request.user
-        context = {
-            'room': room,
-            'is_host': is_host,
-        }
-        return render(request, 'jukebox/room.html', context)
-    else:
+    if not room_qs.exists():
         return redirect('home')
+
+    room = room_qs.first()
+    is_host = request.user.is_authenticated and room.host == request.user
+
+    # проверяем, подключён ли Spotify у ХОСТА
+    spotify_token = SpotifyToken.objects.filter(user = room.host).first()
+
+    context = {
+        'room': room,
+        'is_host': is_host,
+        'spotify_connected': bool(spotify_token),
+        'spotify_user': spotify_token.user.username if spotify_token else None,
+    }
+
+    return render(request, 'jukebox/room.html', context)
 
 
 class AuthURL(APIView):
@@ -457,10 +463,11 @@ def register(request):
     if request.method == 'POST':
         form = UserRegisterForm(request.POST)
         if form.is_valid():
-            form.save() # Сохраняем пользователя в PostgreSQL через Docker
+            user = form.save()
+            login(request, user) # Сохраняем пользователя в PostgreSQL через Docker
             username = form.cleaned_data.get('username')
             messages.success(request, f'Аккаунт создан для {username}!')
-            return redirect('login') # После регистрации отправляем на вход
+            return redirect('home') # После регистрации отправляем на вход
     else:
         form = UserRegisterForm()
     return render(request, 'jukebox/register.html', {'form': form})
