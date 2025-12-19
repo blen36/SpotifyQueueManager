@@ -217,11 +217,13 @@ class CurrentSong(APIView):
         })
 
 class PauseSong(APIView):
-    def put(self, request, format=None):
+    def post(self, request, format=None): # ИСПРАВЛЕНО: с put на post
         room_code = self.request.session.get('room_code')
         room = Room.objects.filter(code=room_code).first()
 
-        # ИСПРАВЛЕНО: Логика сравнения хоста
+        if not room:
+            return Response({'Error': 'Room not found'}, status=status.HTTP_404_NOT_FOUND)
+
         is_host = request.user.is_authenticated and room.host == request.user
 
         if is_host or room.guest_can_pause:
@@ -232,11 +234,13 @@ class PauseSong(APIView):
 
 
 class PlaySong(APIView):
-    def put(self, request, format=None):
+    def post(self, request, format=None): # ИСПРАВЛЕНО: с put на post
         room_code = self.request.session.get('room_code')
         room = Room.objects.filter(code=room_code).first()
 
-        # ИСПРАВЛЕНО: Логика сравнения хоста
+        if not room:
+            return Response({'Error': 'Room not found'}, status=status.HTTP_404_NOT_FOUND)
+
         is_host = request.user.is_authenticated and room.host == request.user
 
         if is_host or room.guest_can_pause:
@@ -244,7 +248,6 @@ class PlaySong(APIView):
             return Response({}, status=status.HTTP_204_NO_CONTENT)
 
         return Response({}, status=status.HTTP_403_FORBIDDEN)
-
 
 class SkipSong(APIView):
     def post(self, request, format=None):

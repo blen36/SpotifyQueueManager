@@ -1,33 +1,161 @@
 {% extends 'jukebox/base.html' %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-6 col-lg-5">
+<style>
+    /* Основной контейнер */
+    .create-wrapper {
+        min-height: 80vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+    }
 
-        <div class="glass-panel p-4 mt-4">
-            <h2 class="h4 text-center mb-4">Create Room</h2>
+    /* Карточка с неоновой рамкой */
+    .registration-card {
+        background-color: #181818;
+        border: 2px solid #1DB954;
+        border-radius: 20px;
+        box-shadow: 0 0 25px rgba(29, 185, 84, 0.2);
+        width: 100%;
+        max-width: 550px;
+        padding: 40px;
+    }
 
-            <form method="post">
-                {% csrf_token %}
+    /* Иконка */
+    .icon-circle {
+        width: 64px;
+        height: 64px;
+        background: rgba(29, 185, 84, 0.1);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 20px auto;
+        color: #1DB954;
+        font-size: 1.8rem;
+    }
 
-                <div class="mb-3">
-                    <label class="form-label">Votes required to skip</label>
-                    {{ form.votes_to_skip }}
-                </div>
+    /* Выравнивание полей в одну линию */
+    .form-row {
+        display: flex;
+        align-items: center;
+        margin-bottom: 25px;
+    }
 
-                <div class="form-check form-switch mb-4">
-                    {{ form.guest_can_pause }}
-                    <label class="form-check-label ms-2">
-                        Guests can pause/play
-                    </label>
-                </div>
+    .field-label {
+        flex: 0 0 200px; /* Ширина для длинных названий */
+        color: #B3B3B3;
+        font-size: 0.8rem;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin: 0;
+        padding-right: 15px;
+    }
 
-                <button type="submit" class="btn btn-spotify w-100">
-                    Create Room
-                </button>
-            </form>
+    .field-input-wrapper {
+        flex: 1;
+        display: flex;
+        align-items: center;
+    }
+
+    /* Темно-серые поля ввода */
+    .custom-form input[type="number"],
+    .custom-form input[type="text"] {
+        width: 100% !important;
+        background-color: #282828 !important;
+        border: 1px solid #404040 !important;
+        color: #ffffff !important;
+        border-radius: 8px !important;
+        padding: 12px 15px !important;
+        box-sizing: border-box !important;
+        outline: none !important;
+        transition: all 0.3s ease;
+    }
+
+    .custom-form input:focus {
+        background-color: #333333 !important;
+        border-color: #1DB954 !important;
+        box-shadow: 0 0 10px rgba(29, 185, 84, 0.4) !important;
+    }
+
+    /* Стиль для чекбокса */
+    .custom-form input[type="checkbox"] {
+        width: 20px;
+        height: 20px;
+        accent-color: #1DB954; /* Цвет Spotify для галочки */
+        cursor: pointer;
+    }
+
+    /* Кнопка "Create Room" */
+    .btn-spotify-action {
+        background-color: #1DB954;
+        color: white;
+        border: none;
+        border-radius: 50px;
+        font-weight: bold;
+        padding: 15px;
+        width: 100%;
+        margin-top: 10px;
+        font-size: 1.1rem;
+        transition: transform 0.2s, background-color 0.2s;
+        cursor: pointer;
+    }
+
+    .btn-spotify-action:hover {
+        background-color: #1ed760;
+        transform: scale(1.03);
+    }
+
+    /* Адаптивность */
+    @media (max-width: 576px) {
+        .form-row {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        .field-label {
+            flex: none;
+            margin-bottom: 8px;
+        }
+    }
+</style>
+
+<div class="create-wrapper">
+    <div class="registration-card">
+        <div class="text-center">
+            <div class="icon-circle">
+                <i class="bi bi-plus-circle-fill"></i>
+            </div>
+            <h2 class="fw-bold text-white mb-2">Create Room</h2>
+            <p class="text-secondary small mb-5">Configure your session settings</p>
         </div>
 
+        <form method="POST" class="custom-form">
+            {% csrf_token %}
+
+            {# Используем ручной вывод полей для контроля верстки #}
+            {% for field in form %}
+                <div class="form-row">
+                    <label class="field-label" for="{{ field.id_for_label }}">
+                        {{ field.label }}
+                    </label>
+                    <div class="field-input-wrapper">
+                        {{ field }}
+                    </div>
+                </div>
+            {% endfor %}
+
+            <button type="submit" class="btn-spotify-action">
+                Create Room
+            </button>
+        </form>
+
+        <div class="text-center mt-4">
+            <a href="{% url 'home' %}" class="text-secondary text-decoration-none small" onmouseover="this.style.color='white'" onmouseout="this.style.color='#B3B3B3'">
+                <i class="bi bi-x-circle"></i> Cancel
+            </a>
+        </div>
     </div>
 </div>
 {% endblock %}

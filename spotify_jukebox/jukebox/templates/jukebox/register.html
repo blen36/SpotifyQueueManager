@@ -1,51 +1,130 @@
 {% extends 'jukebox/base.html' %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-6">
-        <div class="card bg-dark text-white border-secondary shadow">
-            <div class="card-body p-5">
-                <h2 class="text-center mb-4">Регистрация в JamQueue</h2>
-                
-                <form method="POST">
+<div class="container">
+    <div class="row justify-content-center align-items-center" style="min-height: 80vh;">
+        <div class="col-md-6 col-lg-5">
+
+            <div class="registration-card p-4 p-md-5">
+                <div class="text-center mb-5">
+                    <div class="icon-circle mb-3">
+                        <i class="bi bi-person-plus-fill"></i>
+                    </div>
+                    <h2 class="fw-bold text-white">Join JamQueue</h2>
+                    <p class="text-secondary small">Start hosting your music sessions</p>
+                </div>
+
+                <form method="POST" class="custom-form">
                     {% csrf_token %}
-                    
-                    {% if form.non_field_errors %}
-                        <div class="alert alert-danger">
-                            {% for error in form.non_field_errors %}
-                                {{ error }}
-                            {% endfor %}
-                        </div>
-                    {% endif %}
 
                     {% for field in form %}
-                        <div class="mb-3">
-                            <label class="form-label">{{ field.label }}</label>
-                            
-                            <div class="{% if field.errors %}is-invalid{% endif %}">
+                        <div class="form-row mb-4">
+                            <label for="{{ field.id_for_label }}" class="field-label">
+                                {{ field.label }}
+                            </label>
+                            <div class="field-input-wrapper">
                                 {{ field }}
-                            </div>
-
-                            {% if field.errors %}
                                 {% for error in field.errors %}
-                                    <div class="text-danger small mt-1">
-                                        <i class="bi bi-exclamation-circle"></i> {{ error }}
-                                    </div>
+                                    <div class="error-text">{{ error }}</div>
                                 {% endfor %}
-                            {% endif %}
-                            
-                            {% if field.help_text %}
-                                <div class="form-text text-secondary small">{{ field.help_text }}</div>
-                            {% endif %}
+                            </div>
                         </div>
                     {% endfor %}
-                    
-                    <div class="d-grid gap-2 mt-4">
-                        <button type="submit" class="btn btn-spotify btn-lg">Создать аккаунт</button>
+
+                    <div class="text-center mt-5">
+                        <button type="submit" class="btn-spotify w-100 py-3">
+                            Create Account
+                        </button>
                     </div>
                 </form>
+
+                <div class="text-center mt-4">
+                    <p class="text-secondary small">Already have an account?
+                        <a href="{% url 'login' %}" class="text-success fw-bold text-decoration-none">Sign In</a>
+                    </p>
+                </div>
             </div>
+
         </div>
     </div>
 </div>
+
+<style>
+    /* Основная карточка с неоновым свечением */
+    .registration-card {
+        background-color: #181818;
+        border: 2px solid #1DB954;
+        border-radius: 20px;
+        box-shadow: 0 0 20px rgba(29, 185, 84, 0.2);
+    }
+
+    .icon-circle {
+        width: 60px;
+        height: 60px;
+        background: rgba(29, 185, 84, 0.1);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto;
+        color: #1DB954;
+        font-size: 1.5rem;
+    }
+
+    /* ВЫРАВНИВАНИЕ ПО ВЕРТИКАЛИ */
+    .form-row {
+        display: flex;
+        align-items: center; /* Центрируем текст метки по высоте инпута */
+    }
+
+    .field-label {
+        flex: 0 0 120px; /* Фиксированная ширина для всех меток — это выровняет инпуты */
+        color: #B3B3B3;
+        font-size: 0.8rem;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 0; /* Убираем стандартный отступ */
+        padding-right: 15px;
+    }
+
+    .field-input-wrapper {
+        flex: 1; /* Инпут занимает всё оставшееся место */
+    }
+
+    /* Стилизация самих инпутов (форсируем темный стиль) */
+    .custom-form input {
+        background-color: #121212 !important;
+        border: 1px solid #404040 !important;
+        color: white !important;
+        border-radius: 8px !important;
+        padding: 10px 15px !important;
+        width: 100%;
+        transition: all 0.3s ease;
+    }
+
+    .custom-form input:focus {
+        border-color: #1DB954 !important;
+        box-shadow: 0 0 10px rgba(29, 185, 84, 0.3) !important;
+        outline: none;
+    }
+
+    .error-text {
+        color: #ff4d4d;
+        font-size: 0.75rem;
+        margin-top: 5px;
+    }
+
+    /* Адаптивность для мобилок (на маленьких экранах метки станут сверху) */
+    @media (max-width: 576px) {
+        .form-row {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        .field-label {
+            flex: none;
+            margin-bottom: 8px;
+        }
+    }
+</style>
 {% endblock %}

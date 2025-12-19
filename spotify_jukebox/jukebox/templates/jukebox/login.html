@@ -1,35 +1,138 @@
 {% extends 'jukebox/base.html' %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-5">
-        <div class="card bg-dark text-white border-secondary shadow">
-            <div class="card-body p-5">
-                <h2 class="text-center mb-4">Вход в JamQueue</h2>
-                
-                <form method="POST">
-                    {% csrf_token %}
+<style>
+    /* Используем те же стили для идентичности */
+    .login-wrapper {
+        min-height: 80vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+    }
 
-                    {% if form.errors or form.non_field_errors %}
-                        <div class="alert alert-danger py-2 small">
-                            <i class="bi bi-shield-lock"></i> Неверное имя пользователя или пароль.
-                        </div>
-                    {% endif %}
+    .registration-card {
+        background-color: #181818;
+        border: 2px solid #1DB954;
+        border-radius: 20px;
+        box-shadow: 0 0 25px rgba(29, 185, 84, 0.15);
+        width: 100%;
+        max-width: 550px;
+        padding: 40px;
+    }
 
-                    <div class="mb-3">
-                        <label class="form-label text-secondary small">Имя пользователя</label>
-                        <input type="text" name="username" class="form-control bg-dark text-white border-secondary" required>
-                    </div>
-                    <div class="mb-4">
-                        <label class="form-label text-secondary small">Пароль</label>
-                        <input type="password" name="password" class="form-control bg-dark text-white border-secondary" required>
-                    </div>
+    .icon-circle {
+        width: 60px;
+        height: 60px;
+        background: rgba(29, 185, 84, 0.1);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 15px auto;
+        color: #1DB954;
+        font-size: 1.6rem;
+    }
 
-                    <div class="d-grid gap-2">
-                        <button type="submit" class="btn btn-spotify btn-lg">Войти</button>
-                    </div>
-                </form>
+    .form-row {
+        display: flex;
+        align-items: center;
+        margin-bottom: 25px;
+    }
+
+    .field-label {
+        flex: 0 0 140px;
+        color: #B3B3B3;
+        font-size: 0.75rem;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin: 0;
+        padding-right: 15px;
+    }
+
+    .field-input-wrapper { flex: 1; }
+
+    .custom-form input {
+        width: 100% !important;
+        background-color: #282828 !important;
+        border: 1px solid #404040 !important;
+        color: #ffffff !important;
+        border-radius: 8px !important;
+        padding: 12px 15px !important;
+        box-sizing: border-box !important;
+        outline: none !important;
+    }
+
+    /* Защита от белых полей браузера */
+    .custom-form input:-webkit-autofill {
+        -webkit-text-fill-color: white !important;
+        -webkit-box-shadow: 0 0 0px 1000px #282828 inset !important;
+    }
+
+    .custom-form input:focus {
+        background-color: #333333 !important;
+        border-color: #1DB954 !important;
+        box-shadow: 0 0 10px rgba(29, 185, 84, 0.3) !important;
+    }
+
+    .btn-spotify-action {
+        background-color: #1DB954;
+        color: white;
+        border: none;
+        border-radius: 50px;
+        font-weight: bold;
+        padding: 15px;
+        width: 100%;
+        margin-top: 10px;
+        font-size: 1.1rem;
+        transition: transform 0.2s;
+    }
+
+    .btn-spotify-action:hover {
+        background-color: #1ed760;
+        transform: scale(1.03);
+    }
+</style>
+
+<div class="login-wrapper">
+    <div class="registration-card">
+        <div class="text-center">
+            <div class="icon-circle"><i class="bi bi-shield-lock-fill"></i></div>
+            <h2 class="fw-bold text-white mb-2">Welcome Back</h2>
+            <p class="text-secondary small mb-5">Log in to your account</p>
+        </div>
+
+        <form method="POST" class="custom-form">
+            {% csrf_token %}
+
+            {% if form.errors or form.non_field_errors %}
+                <div class="alert alert-danger bg-danger text-white border-0 py-2 mb-4 small text-center rounded-3">
+                    Invalid username or password.
+                </div>
+            {% endif %}
+
+            <div class="form-row">
+                <label class="field-label">Username</label>
+                <div class="field-input-wrapper">
+                    <input type="text" name="username" required>
+                </div>
             </div>
+
+            <div class="form-row">
+                <label class="field-label">Password</label>
+                <div class="field-input-wrapper">
+                    <input type="password" name="password" required>
+                </div>
+            </div>
+
+            <button type="submit" class="btn-spotify-action">Sign In</button>
+        </form>
+
+        <div class="text-center mt-4">
+            <p class="text-secondary small">Don't have an account?
+                <a href="{% url 'register' %}" class="text-decoration-none fw-bold" style="color: #1DB954;">Register here</a>
+            </p>
         </div>
     </div>
 </div>

@@ -1,32 +1,153 @@
 {% extends 'jukebox/base.html' %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-6 col-lg-5">
+<style>
+    /* Центрирование карточки на странице */
+    .join-wrapper {
+        min-height: 80vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+    }
 
-        <div class="glass-panel p-4 mt-4">
-            <h2 class="h4 text-center mb-4">Join Room</h2>
+    /* Стили основной карточки */
+    .registration-card {
+        background-color: #181818;
+        border: 2px solid #1DB954;
+        border-radius: 20px;
+        box-shadow: 0 0 25px rgba(29, 185, 84, 0.2);
+        width: 100%;
+        max-width: 500px;
+        padding: 40px;
+    }
 
-            {% if error %}
-                <div class="alert alert-danger text-center">
-                    {{ error }}
-                </div>
-            {% endif %}
+    /* Верхняя иконка */
+    .icon-circle {
+        width: 64px;
+        height: 64px;
+        background: rgba(29, 185, 84, 0.1);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 20px auto;
+        color: #1DB954;
+        font-size: 1.8rem;
+    }
 
-            <form method="post">
-                {% csrf_token %}
+    /* Выравнивание в одну линию */
+    .form-row {
+        display: flex;
+        align-items: center;
+        margin-bottom: 25px;
+    }
 
-                <div class="mb-4">
-                    <label class="form-label">Room Code</label>
-                    {{ form.code }}
-                </div>
+    .field-label {
+        flex: 0 0 130px; /* Ширина для текста "Room Code" */
+        color: #B3B3B3;
+        font-size: 0.8rem;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin: 0;
+        padding-right: 15px;
+    }
 
-                <button type="submit" class="btn btn-outline-spotify w-100">
-                    Join
-                </button>
-            </form>
+    .field-input-wrapper {
+        flex: 1;
+    }
+
+    /* Темно-серые поля ввода (как на регистрации) */
+    .custom-form input {
+        width: 100% !important;
+        background-color: #282828 !important;
+        border: 1px solid #404040 !important;
+        color: #ffffff !important;
+        border-radius: 8px !important;
+        padding: 12px 15px !important;
+        box-sizing: border-box !important;
+        outline: none !important;
+        font-size: 1.1rem;
+        letter-spacing: 2px; /* Чтобы код комнаты было удобнее читать */
+        text-align: center;
+        transition: all 0.3s ease;
+    }
+
+    .custom-form input:focus {
+        background-color: #333333 !important;
+        border-color: #1DB954 !important;
+        box-shadow: 0 0 12px rgba(29, 185, 84, 0.4) !important;
+    }
+
+    /* Кнопка "Join" */
+    .btn-spotify-action {
+        background-color: #1DB954;
+        color: white;
+        border: none;
+        border-radius: 50px;
+        font-weight: bold;
+        padding: 15px;
+        width: 100%;
+        margin-top: 10px;
+        font-size: 1.1rem;
+        transition: transform 0.2s, background-color 0.2s;
+    }
+
+    .btn-spotify-action:hover {
+        background-color: #1ed760;
+        transform: scale(1.03);
+    }
+
+    /* Адаптив для мобилок */
+    @media (max-width: 480px) {
+        .form-row {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        .field-label {
+            flex: none;
+            margin-bottom: 8px;
+        }
+    }
+</style>
+
+<div class="join-wrapper">
+    <div class="registration-card">
+        <div class="text-center">
+            <div class="icon-circle">
+                <i class="bi bi-door-open-fill"></i>
+            </div>
+            <h2 class="fw-bold text-white mb-2">Join Room</h2>
+            <p class="text-secondary small mb-5">Enter the room code to start listening</p>
         </div>
 
+        <form method="POST" class="custom-form">
+            {% csrf_token %}
+
+            <div class="form-row">
+                <label class="field-label">Room Code</label>
+                <div class="field-input-wrapper">
+                    <input type="text" name="room_code" placeholder="E.G. U7ZE" maxlength="10" required autofocus>
+                </div>
+            </div>
+
+            <button type="submit" class="btn-spotify-action">
+                Join
+            </button>
+        </form>
+
+        <div class="text-center mt-4">
+            <a href="{% url 'home' %}" class="text-secondary text-decoration-none small hover-white">
+                <i class="bi bi-arrow-left"></i> Back to Home
+            </a>
+        </div>
     </div>
 </div>
+
+<style>
+    .hover-white:hover {
+        color: white !important;
+    }
+</style>
 {% endblock %}
