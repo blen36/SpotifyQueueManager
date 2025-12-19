@@ -1,93 +1,155 @@
 {% extends 'jukebox/base.html' %}
 
 {% block content %}
-<div class="row justify-content-center mt-4">
+<style>
+    /* ПАНЕЛЬ И ОБЩИЙ ВИД */
+    .glass-panel {
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 20px;
+    }
+
+    /* СТИЛИ ВИНИЛА (Статичные, чтобы не дергались при обновлении) */
+    .vinyl-container {
+        position: relative;
+        display: inline-block;
+        width: 200px;
+        height: 200px;
+    }
+
+    .vinyl-disk {
+        width: 200px;
+        height: 200px;
+        background: radial-gradient(circle, #222 30%, #050505 100%);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+        z-index: 1;
+    }
+
+    /* Сама обложка в центре */
+    .vinyl-cover {
+        width: 85px;
+        height: 85px;
+        border-radius: 50%;
+        object-fit: cover;
+        z-index: 2;
+        border: 3px solid #111;
+        transform-origin: center center;
+        animation: spin 4s linear infinite;
+        animation-play-state: paused; /* По умолчанию стоит */
+    }
+
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+
+    /* Состояние, когда музыка ИГРАЕТ */
+    .is-playing-state .vinyl-cover {
+        animation-play-state: running;
+    }
+
+    .is-playing-state .tonearm-visual {
+        transform: rotate(-12deg); /* Игла опускается */
+    }
+
+    /* Тонарм (Игла) */
+    .tonearm-visual {
+        position: absolute;
+        top: 0;
+        right: 10px;
+        width: 8px;
+        height: 90px;
+        background: linear-gradient(to bottom, #999, #444);
+        border-radius: 4px;
+        transform-origin: top center;
+        transform: rotate(-40deg); /* Игла поднята */
+        transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        z-index: 10;
+        box-shadow: 2px 2px 10px rgba(0,0,0,0.3);
+    }
+
+    .control-btn { transition: all 0.2s; }
+    .control-btn:hover { transform: scale(1.1); color: #1DB954 !important; }
+
+    #search-results::-webkit-scrollbar { width: 5px; }
+    #search-results::-webkit-scrollbar-thumb { background: #444; border-radius: 10px; }
+</style>
+
+<div class="row justify-content-center mt-4" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
     <div class="col-md-6 col-lg-5 text-center">
 
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <button class="btn btn-outline-danger btn-sm"
-                    hx-post="/leave-room/"
-                    hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+            <button class="btn btn-outline-danger btn-sm" hx-post="/leave-room/">
                 <i class="bi bi-box-arrow-left"></i> Leave
             </button>
-
             <div class="text-center">
                 <span class="text-secondary text-uppercase small ls-1">Room Code</span>
-                <h2 class="h4 fw-bold mb-0">{{ room.code }}</h2>
+                <h2 class="h4 fw-bold mb-0 text-white">{{ room.code }}</h2>
             </div>
-
             {% if is_host %}
-            <button class="btn btn-outline-light btn-sm"
-                    data-bs-toggle="modal"
-                    data-bs-target="#settingsModal"
-                    hx-get="/api/get-room/?code={{ room.code }}"
-                    hx-target="#settings-form-content">
+            <button class="btn btn-outline-light btn-sm" data-bs-toggle="modal" data-bs-target="#settingsModal"
+                    hx-get="/api/get-room/?code={{ room.code }}" hx-target="#settings-form-content">
                 <i class="bi bi-gear-fill"></i>
             </button>
             {% endif %}
         </div>
 
         <div id="spotify-status" class="alert alert-warning text-center mb-4" style="display:none;">
-            <p class="mb-2 fw-bold">Host must connect Spotify to enable music control</p>
-            <button id="connect-spotify-btn" class="btn btn-success btn-sm">
-                <i class="bi bi-spotify"></i> Connect Spotify
+            <p class="mb-2 fw-bold">Host must connect Spotify</p>
+            <button id="connect-spotify-btn" class="btn btn-success btn-sm"><i class="bi bi-spotify"></i> Connect</button>
+        </div>
+
+        <div class="glass-panel p-4 mb-3">
+            <div id="main-vinyl-container" class="vinyl-container mb-4">
+                <div class="vinyl-disk">
+                    <img id="dynamic-vinyl-cover" src="" class="vinyl-cover" style="display:none;">
+                    <div id="vinyl-placeholder" class="bg-dark rounded-circle" style="width:85px; height:85px; border:3px solid #111;"></div>
+                    <div style="position: absolute; width: 6px; height: 6px; background: #000; border-radius: 50%; z-index: 5;"></div>
+                </div>
+                <div class="tonearm-visual"></div>
+            </div>
+
+            <div id="music-player"
+                 hx-get="/api/current-song/"
+                 hx-trigger="load, every 2s"
+                 hx-swap="innerHTML"
+                 hx-on::after-request="syncVinylState()">
+                <div class="text-secondary p-5">Loading player…</div>
+            </div>
+
+            <button class="btn btn-outline-light btn-sm w-100 mt-3" data-bs-toggle="modal" data-bs-target="#queueModal"
+                    hx-get="/api/queue/" hx-target="#queue-content">
+                <i class="bi bi-music-note-list"></i> Open Queue
             </button>
         </div>
 
-        <div id="spotify-features">
-            <div id="music-player"
-                 class="glass-panel p-4 mb-3"
-                 hx-get="/api/current-song/"
-                 hx-trigger="load, every 2s"
-                 hx-swap="innerHTML">
-                <div class="text-secondary">Loading player…</div>
+        <div class="search-section text-start mt-4">
+            <h4 class="text-white mb-3 h5">Add Song to Queue</h4>
+            <div class="input-group mb-3">
+                <span class="input-group-text bg-dark border-secondary text-secondary"><i class="bi bi-search"></i></span>
+                <input type="text" name="query" class="form-control bg-dark text-white border-secondary"
+                       placeholder="Search tracks..." hx-get="/api/spotify/search/" hx-trigger="keyup changed delay:500ms"
+                       hx-target="#search-results" autocomplete="off">
             </div>
-
-            <button class="btn btn-outline-light btn-sm w-100 mb-4"
-                    data-bs-toggle="modal"
-                    data-bs-target="#queueModal"
-                    hx-get="/api/queue/"
-                    hx-target="#queue-content">
-                <i class="bi bi-music-note-list"></i> Open Queue
-            </button>
-
-            <hr class="border-secondary my-4">
-
-            <div class="search-section text-start">
-                <h4 class="text-white mb-3 h5">Add Song to Queue</h4>
-                <div class="input-group mb-3">
-                    <span class="input-group-text bg-dark border-secondary text-secondary">
-                        <i class="bi bi-search"></i>
-                    </span>
-                    <input type="text"
-                           name="query"
-                           class="form-control bg-dark text-white border-secondary"
-                           placeholder="Search Spotify tracks..."
-                           hx-get="/api/spotify/search/"
-                           hx-trigger="keyup changed delay:500ms"
-                           hx-target="#search-results"
-                           autocomplete="off">
-                </div>
-                <div id="search-results" style="max-height: 400px; overflow-y: auto;"></div>
-            </div>
+            <div id="search-results" style="max-height: 350px; overflow-y: auto;"></div>
         </div>
     </div>
 </div>
 
 <div class="modal fade" id="queueModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content bg-dark text-white border-secondary">
             <div class="modal-header border-secondary">
-                <h5 class="modal-title">Room Queue</h5>
+                <h5 class="modal-title">Queue</h5>
                 <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body"
-                 id="queue-content"
-                 hx-get="/api/queue/"
-                 hx-trigger="every 5s, load"
-                 hx-swap="innerHTML">
-                <div class="text-center p-3 text-secondary">Loading queue...</div>
-            </div>
+            <div id="queue-content" class="modal-body"></div>
         </div>
     </div>
 </div>
@@ -105,47 +167,59 @@
                 </form>
             </div>
             <div class="modal-footer border-secondary">
-                <button class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                <button class="btn btn-primary"
-                        hx-patch="/update-room/"
-                        hx-include="#settings-form"
-                        hx-vals='{"code": "{{ room.code }}"}'
-                        hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
-                        data-bs-dismiss="modal">
-                    Save Changes
-                </button>
+                <button class="btn btn-primary btn-sm" hx-patch="/update-room/" hx-include="#settings-form"
+                        hx-vals='{"code": "{{ room.code }}"}' data-bs-dismiss="modal">Save</button>
             </div>
         </div>
     </div>
 </div>
 
 <script>
-document.addEventListener("DOMContentLoaded", function () {
-    const statusBlock = document.getElementById("spotify-status");
-    const connectBtn = document.getElementById("connect-spotify-btn");
+    // Главная функция синхронизации винила
+    function syncVinylState() {
+        const dataTag = document.getElementById('player-data');
+        if (!dataTag) return;
 
-    // Проверка авторизации работает для всех
-    fetch("/api/is-authenticated/")
-        .then(res => res.json())
-        .then(data => {
-            if (!data.status) {
-                statusBlock.style.display = "block";
-                {% if not is_host %}
-                statusBlock.innerHTML = '<p class="mb-0 fw-bold text-center">Waiting for the host to connect Spotify...</p>';
-                {% endif %}
-            }
-        });
+        const isPlaying = dataTag.getAttribute('data-playing') === 'true';
+        const newImg = dataTag.getAttribute('data-image');
 
-    // Кнопка коннекта только для хоста
-    {% if is_host %}
-    connectBtn?.addEventListener("click", () => {
-        fetch("/api/get-auth-url/")
-            .then(r => r.json())
+        const container = document.getElementById('main-vinyl-container');
+        const cover = document.getElementById('dynamic-vinyl-cover');
+        const placeholder = document.getElementById('vinyl-placeholder');
+
+        // Включаем вращение через класс
+        if (isPlaying) {
+            container.classList.add('is-playing-state');
+        } else {
+            container.classList.remove('is-playing-state');
+        }
+
+        // Обновляем картинку если она сменилась
+        if (newImg && cover.src !== newImg) {
+            cover.src = newImg;
+            cover.style.display = 'block';
+            if(placeholder) placeholder.style.display = 'none';
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+        // Проверка авторизации Spotify
+        fetch("/api/is-authenticated/")
+            .then(res => res.json())
             .then(data => {
-                if (data.url) window.location.href = data.url;
+                if (!data.status) {
+                    document.getElementById("spotify-status").style.display = "block";
+                    {% if not is_host %}
+                    document.getElementById("spotify-status").innerHTML = '<p class="mb-0">Waiting for host to connect...</p>';
+                    {% endif %}
+                }
             });
+
+        {% if is_host %}
+        document.getElementById("connect-spotify-btn")?.addEventListener("click", () => {
+            fetch("/api/get-auth-url/").then(r => r.json()).then(data => { if (data.url) window.location.href = data.url; });
+        });
+        {% endif %}
     });
-    {% endif %}
-});
 </script>
 {% endblock %}
