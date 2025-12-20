@@ -17,7 +17,6 @@ load_dotenv()
 # Spotify Credentials
 SPOTIPY_CLIENT_ID = os.environ.get('SPOTIPY_CLIENT_ID')
 SPOTIPY_CLIENT_SECRET = os.environ.get('SPOTIPY_CLIENT_SECRET')
-SPOTIPY_REDIRECT_URI = os.environ.get('SPOTIPY_REDIRECT_URI')
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -30,8 +29,35 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'insecure-default-key-for-dev')
 DEBUG = os.getenv('DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = ['room-spotify.ru', 'localhost', '127.0.0.1']
-CSRF_TRUSTED_ORIGINS = ['https://room-spotify.ru']
+# Разрешаем домен
+# Исправленный блок в settings.py
+ALLOWED_HOSTS = [
+    'room-spotify.ru',
+    'www.room-spotify.ru',
+    'spotify-room.ru',
+    'www.spotify-room.ru',
+    'localhost',
+    '127.0.0.1'
+]
+
+# Также обязательно исправьте доверенные источники для CSRF
+CSRF_TRUSTED_ORIGINS = [
+    'https://room-spotify.ru',
+    'https://www.room-spotify.ru',
+    'https://spotify-room.ru',
+    'https://www.spotify-room.ru'
+]
+
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+SESSION_COOKIE_SECURE = True  # Только через HTTPS
+CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SAMESITE = 'Lax'
+
+# --- SPOTIFY НАСТРОЙКИ ---
+
+# УБЕДИСЬ, ЧТО ЭТОТ URI УКАЗАН В SPOTIFY DASHBOARD:
+SPOTIPY_REDIRECT_URI = 'https://room-spotify.ru/redirect/'
 
 INSTALLED_APPS = [
     'django.contrib.admin',

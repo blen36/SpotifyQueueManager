@@ -10,7 +10,7 @@
         border-radius: 20px;
     }
 
-    /* СТИЛИ ВИНИЛА (Статичные, чтобы не дергались при обновлении) */
+    /* СТИЛИ ВИНИЛА */
     .vinyl-container {
         position: relative;
         display: inline-block;
@@ -31,7 +31,6 @@
         z-index: 1;
     }
 
-    /* Сама обложка в центре */
     .vinyl-cover {
         width: 85px;
         height: 85px;
@@ -39,26 +38,15 @@
         object-fit: cover;
         z-index: 2;
         border: 3px solid #111;
-        transform-origin: center center;
         animation: spin 4s linear infinite;
-        animation-play-state: paused; /* По умолчанию стоит */
+        animation-play-state: paused;
     }
 
-    @keyframes spin {
-        from { transform: rotate(0deg); }
-        to { transform: rotate(360deg); }
-    }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
-    /* Состояние, когда музыка ИГРАЕТ */
-    .is-playing-state .vinyl-cover {
-        animation-play-state: running;
-    }
+    .is-playing-state .vinyl-cover { animation-play-state: running; }
+    .is-playing-state .tonearm-visual { transform: rotate(-12deg); }
 
-    .is-playing-state .tonearm-visual {
-        transform: rotate(-12deg); /* Игла опускается */
-    }
-
-    /* Тонарм (Игла) */
     .tonearm-visual {
         position: absolute;
         top: 0;
@@ -68,17 +56,21 @@
         background: linear-gradient(to bottom, #999, #444);
         border-radius: 4px;
         transform-origin: top center;
-        transform: rotate(-40deg); /* Игла поднята */
+        transform: rotate(-40deg);
         transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
         z-index: 10;
-        box-shadow: 2px 2px 10px rgba(0,0,0,0.3);
+    }
+
+    /* ПЛАВНЫЙ ПРОГРЕСС-БАР */
+    #actual-progress-bar {
+        height: 100%;
+        background-color: #1DB954;
+        width: 0%;
+        transition: width 2.1s linear;
     }
 
     .control-btn { transition: all 0.2s; }
     .control-btn:hover { transform: scale(1.1); color: #1DB954 !important; }
-
-    #search-results::-webkit-scrollbar { width: 5px; }
-    #search-results::-webkit-scrollbar-thumb { background: #444; border-radius: 10px; }
 </style>
 
 <div class="row justify-content-center mt-4" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
@@ -97,22 +89,30 @@
                     hx-get="/api/get-room/?code={{ room.code }}" hx-target="#settings-form-content">
                 <i class="bi bi-gear-fill"></i>
             </button>
+            {% else %}
+            <div style="width: 45px;"></div>
             {% endif %}
         </div>
 
-        <div id="spotify-status" class="alert alert-warning text-center mb-4" style="display:none;">
-            <p class="mb-2 fw-bold">Host must connect Spotify</p>
-            <button id="connect-spotify-btn" class="btn btn-success btn-sm"><i class="bi bi-spotify"></i> Connect</button>
-        </div>
+        <div id="spotify-status" class="alert alert-warning text-center mb-4" style="display:none;"></div>
 
         <div class="glass-panel p-4 mb-3">
             <div id="main-vinyl-container" class="vinyl-container mb-4">
                 <div class="vinyl-disk">
                     <img id="dynamic-vinyl-cover" src="" class="vinyl-cover" style="display:none;">
                     <div id="vinyl-placeholder" class="bg-dark rounded-circle" style="width:85px; height:85px; border:3px solid #111;"></div>
-                    <div style="position: absolute; width: 6px; height: 6px; background: #000; border-radius: 50%; z-index: 5;"></div>
                 </div>
                 <div class="tonearm-visual"></div>
+            </div>
+
+            <div class="progress-section mb-4 px-3">
+                <div class="d-flex justify-content-between text-secondary mb-1" style="font-size: 0.7rem;">
+                    <span id="js-display-time">0:00</span>
+                    <span id="js-display-duration">0:00</span>
+                </div>
+                <div class="progress bg-dark" style="height: 4px; overflow: hidden; border-radius: 2px;">
+                    <div id="actual-progress-bar"></div>
+                </div>
             </div>
 
             <div id="music-player"
@@ -175,35 +175,44 @@
 </div>
 
 <script>
-    // Главная функция синхронизации винила
     function syncVinylState() {
         const dataTag = document.getElementById('player-data');
         if (!dataTag) return;
 
         const isPlaying = dataTag.getAttribute('data-playing') === 'true';
         const newImg = dataTag.getAttribute('data-image');
+        const progress = dataTag.getAttribute('data-progress');
+        const timeStr = dataTag.getAttribute('data-time');
+        const durationStr = dataTag.getAttribute('data-duration');
 
         const container = document.getElementById('main-vinyl-container');
         const cover = document.getElementById('dynamic-vinyl-cover');
-        const placeholder = document.getElementById('vinyl-placeholder');
+        const progressBar = document.getElementById('actual-progress-bar');
 
-        // Включаем вращение через класс
-        if (isPlaying) {
-            container.classList.add('is-playing-state');
-        } else {
-            container.classList.remove('is-playing-state');
+        if (isPlaying) container.classList.add('is-playing-state');
+        else container.classList.remove('is-playing-state');
+
+        if (progressBar) {
+            if (isPlaying) {
+                progressBar.style.transition = "width 2.1s linear";
+                progressBar.style.width = progress + "%";
+            } else {
+                progressBar.style.transition = "none";
+                progressBar.style.width = progress + "%";
+            }
         }
 
-        // Обновляем картинку если она сменилась
+        document.getElementById('js-display-time').innerText = timeStr;
+        document.getElementById('js-display-duration').innerText = durationStr;
+
         if (newImg && cover.src !== newImg) {
             cover.src = newImg;
             cover.style.display = 'block';
-            if(placeholder) placeholder.style.display = 'none';
+            document.getElementById('vinyl-placeholder').style.display = 'none';
         }
     }
 
     document.addEventListener("DOMContentLoaded", function () {
-        // Проверка авторизации Spotify
         fetch("/api/is-authenticated/")
             .then(res => res.json())
             .then(data => {
@@ -214,12 +223,6 @@
                     {% endif %}
                 }
             });
-
-        {% if is_host %}
-        document.getElementById("connect-spotify-btn")?.addEventListener("click", () => {
-            fetch("/api/get-auth-url/").then(r => r.json()).then(data => { if (data.url) window.location.href = data.url; });
-        });
-        {% endif %}
     });
 </script>
 {% endblock %}

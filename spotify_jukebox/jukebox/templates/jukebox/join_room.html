@@ -2,7 +2,6 @@
 
 {% block content %}
 <style>
-    /* Центрирование карточки на странице */
     .join-wrapper {
         min-height: 80vh;
         display: flex;
@@ -11,7 +10,6 @@
         padding: 20px;
     }
 
-    /* Стили основной карточки */
     .registration-card {
         background-color: #181818;
         border: 2px solid #1DB954;
@@ -22,7 +20,6 @@
         padding: 40px;
     }
 
-    /* Верхняя иконка */
     .icon-circle {
         width: 64px;
         height: 64px;
@@ -36,7 +33,6 @@
         font-size: 1.8rem;
     }
 
-    /* Выравнивание в одну линию */
     .form-row {
         display: flex;
         align-items: center;
@@ -44,7 +40,7 @@
     }
 
     .field-label {
-        flex: 0 0 130px; /* Ширина для текста "Room Code" */
+        flex: 0 0 130px;
         color: #B3B3B3;
         font-size: 0.8rem;
         font-weight: bold;
@@ -58,7 +54,6 @@
         flex: 1;
     }
 
-    /* Темно-серые поля ввода (как на регистрации) */
     .custom-form input {
         width: 100% !important;
         background-color: #282828 !important;
@@ -69,7 +64,7 @@
         box-sizing: border-box !important;
         outline: none !important;
         font-size: 1.1rem;
-        letter-spacing: 2px; /* Чтобы код комнаты было удобнее читать */
+        letter-spacing: 2px;
         text-align: center;
         transition: all 0.3s ease;
     }
@@ -80,7 +75,6 @@
         box-shadow: 0 0 12px rgba(29, 185, 84, 0.4) !important;
     }
 
-    /* Кнопка "Join" */
     .btn-spotify-action {
         background-color: #1DB954;
         color: white;
@@ -92,6 +86,7 @@
         margin-top: 10px;
         font-size: 1.1rem;
         transition: transform 0.2s, background-color 0.2s;
+        cursor: pointer;
     }
 
     .btn-spotify-action:hover {
@@ -99,7 +94,10 @@
         transform: scale(1.03);
     }
 
-    /* Адаптив для мобилок */
+    .hover-white:hover {
+        color: white !important;
+    }
+
     @media (max-width: 480px) {
         .form-row {
             flex-direction: column;
@@ -125,10 +123,16 @@
         <form method="POST" class="custom-form">
             {% csrf_token %}
 
+            {% if error %}
+                <div style="color: #ff4d4d; text-align: center; margin-bottom: 20px; font-size: 0.9rem;">
+                    <i class="bi bi-exclamation-circle"></i> {{ error }}
+                </div>
+            {% endif %}
+
             <div class="form-row">
                 <label class="field-label">Room Code</label>
                 <div class="field-input-wrapper">
-                    <input type="text" name="room_code" placeholder="E.G. U7ZE" maxlength="10" required autofocus>
+                    <input type="text" name="code" placeholder="E.G. U7ZE" maxlength="10" required autofocus>
                 </div>
             </div>
 
@@ -144,10 +148,4 @@
         </div>
     </div>
 </div>
-
-<style>
-    .hover-white:hover {
-        color: white !important;
-    }
-</style>
 {% endblock %}

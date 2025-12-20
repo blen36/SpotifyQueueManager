@@ -35,5 +35,5 @@ urlpatterns = [
     path('api/get-room/', GetRoom.as_view()),
     path('leave-room/', LeaveRoom.as_view()),
     path('update-room/', UpdateRoom.as_view()),
-    path('redirect/', spotify_callback),
+    path('redirect/', spotify_callback, name='spotify_callback'),
 ]

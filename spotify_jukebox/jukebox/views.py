@@ -27,57 +27,87 @@ def home(request):
 
 @login_required
 def create_room(request):
+    # Гарантируем, что сессия существует
+    if not request.session.exists(request.session.session_key):
+        request.session.create()
+
     if request.method == 'POST':
         form = CreateRoomForm(request.POST)
         if form.is_valid():
             room = form.save(commit=False)
             room.host = request.user
             room.save()
+
+            # Записываем код и ПРИНУДИТЕЛЬНО сохраняем
             request.session['room_code'] = room.code
+            request.session.save()
+
+            print(f"DEBUG: Created room {room.code} for session {request.session.session_key}")
             return redirect('room', room_code=room.code)
     else:
         form = CreateRoomForm()
     return render(request, 'jukebox/create_room.html', {'form': form})
 
+
 @login_required
 def join_room(request):
+    if not request.session.exists(request.session.session_key):
+        request.session.create()
+
     if request.method == 'POST':
         form = JoinRoomForm(request.POST)
         if form.is_valid():
-            code = form.cleaned_data['code']
+            # Очищаем код от пробелов и переводим в верхний регистр
+            code = form.cleaned_data['code'].strip().upper()
+
             if Room.objects.filter(code=code).exists():
                 request.session['room_code'] = code
+                request.session.save()  # КРИТИЧНО для работы через туннель
+
+                print(f"DEBUG: Joined room {code} for session {request.session.session_key}")
                 return redirect('room', room_code=code)
             else:
-                return render(request, 'jukebox/join_room.html', {'form': form, 'error': 'Комната не найдена!'})
+                return render(request, 'jukebox/join_room.html', {
+                    'form': form,
+                    'error': 'Комната не найдена! Проверьте код.'
+                })
     else:
         form = JoinRoomForm()
     return render(request, 'jukebox/join_room.html', {'form': form})
 
+
 @login_required(login_url='/login/')
 def room(request, room_code):
+    # Если зашли в комнату напрямую, обновляем код в сессии
+    request.session['room_code'] = room_code
+    request.session.save()
+
     room_qs = Room.objects.filter(code=room_code)
     if room_qs.exists():
-        room = room_qs.first()
-        # ИСПРАВЛЕНО: Сравнение объектов User, а не строк
-        is_host = request.user.is_authenticated and room.host == request.user
+        room_obj = room_qs.first()
+        is_host = (request.user == room_obj.host)
+
         context = {
-            'room': room,
+            'room': room_obj,
             'is_host': is_host,
         }
         return render(request, 'jukebox/room.html', context)
     else:
+        print(f"DEBUG: Room {room_code} not found in DB")
         return redirect('home')
-
 
 class AuthURL(APIView):
     def get(self, request, format=None):
-        scopes = 'user-read-playback-state user-modify-playback-state user-read-currently-playing playlist-read-private playlist-modify-public user-read-email'
+        scopes = (
+            'user-read-playback-state '
+            'user-modify-playback-state '
+            'user-read-currently-playing '
+            'playlist-read-private '
+            'user-read-email'
+        )
 
-        # РЕАЛЬНЫЙ URL Spotify
-        spotify_auth_url = 'https://accounts.spotify.com/authorize'
-
-        url = Request('GET', spotify_auth_url, params={
+        # ОФИЦИАЛЬНЫЙ URL авторизации
+        url = Request('GET', 'https://accounts.spotify.com/authorize', params={
             'scope': scopes,
             'response_type': 'code',
             'redirect_uri': settings.SPOTIPY_REDIRECT_URI,
@@ -87,6 +117,7 @@ class AuthURL(APIView):
 
         return Response({'url': url}, status=status.HTTP_200_OK)
 
+
 def check_user_session(request):
     if not request.session.exists(request.session.session_key):
         request.session.create()
@@ -95,59 +126,77 @@ def check_user_session(request):
 def spotify_callback(request):
     code = request.GET.get('code')
     error_query = request.GET.get('error')
-    check_user_session(request)
 
-    if error_query is not None:
+    if error_query is not None or not code:
         return redirect('/')
 
+    # Данные для авторизации
     auth_string = f"{settings.SPOTIPY_CLIENT_ID}:{settings.SPOTIPY_CLIENT_SECRET}"
-    auth_bytes = auth_string.encode('utf-8')
-    auth_base64 = base64.b64encode(auth_bytes).decode('utf-8')
+    auth_base64 = base64.b64encode(auth_string.encode('utf-8')).decode('utf-8')
 
-    headers = {'Authorization': f'Basic {auth_base64}', 'Content-Type': 'application/x-www-form-urlencoded'}
-    data = {'grant_type': 'authorization_code', 'code': code, 'redirect_uri': settings.SPOTIPY_REDIRECT_URI}
-    TOKEN_EXCHANGE_URL = 'https://accounts.spotify.com/api/token'
+    headers = {
+        'Authorization': f'Basic {auth_base64}',
+        'Content-Type': 'application/x-www-form-urlencoded'
+    }
+    data = {
+        'grant_type': 'authorization_code',
+        'code': code,
+        'redirect_uri': settings.SPOTIPY_REDIRECT_URI
+    }
+
+    # ОФИЦИАЛЬНЫЙ URL для получения токена
+    TOKEN_URL = 'https://accounts.spotify.com/api/token'
 
     try:
-        response = post(TOKEN_EXCHANGE_URL, headers=headers, data=data)
-        response.raise_for_status()
-        response_json = response.json()
+        response = post(TOKEN_URL, headers=headers, data=data)
+        response_data = response.json()
+
+        if response.status_code != 200:
+            print(f"Spotify Error: {response_data}")
+            return redirect('/')
+
     except Exception as e:
-        print(f"Spotify token exchange failed: {e}")
+        print(f"Connection Error: {e}")
         return redirect('/')
 
-    access_token = response_json.get('access_token')
-    refresh_token = response_json.get('refresh_token')
-    expires_in = response_json.get('expires_in')
-    error_response = response_json.get('error')
-
-    if error_response or not access_token:
-        return redirect('/')
+    access_token = response_data.get('access_token')
+    refresh_token = response_data.get('refresh_token')
+    expires_in = response_data.get('expires_in')
 
     if request.user.is_authenticated:
         update_or_create_user_tokens(
             request.user,
             access_token,
-            response_json.get('token_type'),
+            response_data.get('token_type'),
             expires_in,
             refresh_token
         )
 
-        # 🔥 ВАЖНО: возвращаемся В КОМНАТУ
+        # Возвращаем пользователя в его комнату
         room_code = request.session.get('room_code')
         if room_code:
-            return redirect(f'/room/{room_code}/')
+            return redirect('room', room_code=room_code)
 
-        return redirect('/')
-    else:
-        return redirect('/')
+        # Если в сессии нет кода, ищем последнюю созданную пользователем комнату
+        user_room = Room.objects.filter(host=request.user).last()
+        if user_room:
+            return redirect('room', room_code=user_room.code)
+
+    return redirect('/')
 
 
 class IsAuthenticated(APIView):
     def get(self, request, format=None):
-        is_authenticated = is_spotify_authenticated(request.user)
-        return Response({'status': is_authenticated}, status=status.HTTP_200_OK)
+        # 1. Берем код комнаты из сессии гостя
+        room_code = request.session.get('room_code')
+        room = Room.objects.filter(code=room_code).first()
 
+        if room:
+            # 2. Проверяем авторизацию именно ХОЗЯИНА комнаты
+            is_authenticated = is_spotify_authenticated(room.host)
+            return Response({'status': is_authenticated}, status=status.HTTP_200_OK)
+
+        return Response({'status': False}, status=status.HTTP_200_OK)
 
 class CurrentSong(APIView):
     def get(self, request, format=None):
