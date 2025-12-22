@@ -192,7 +192,7 @@
 </div>
 
 <script>
-    // --- 1. ФУНКЦИЯ ОБНОВЛЕНИЯ ВИНИЛА (Вызывается HTMX) ---
+    // --- 1. ФУНКЦИЯ ОБНОВЛЕНИЯ ВИНИЛА ---
     function syncVinylState() {
         const dataTag = document.getElementById('player-data');
         if (!dataTag) return;
@@ -230,7 +230,7 @@
         }
     }
 
-    // --- 2. ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ (CSRF) ---
+    // --- 2. ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
     function getCookie(name) {
         let cookieValue = null;
         if (document.cookie && document.cookie !== '') {
@@ -246,10 +246,10 @@
         return cookieValue;
     }
 
-    // --- 3. ИНИЦИАЛИЗАЦИЯ ПРИ ЗАГРУЗКЕ ---
+    // --- 3. ЛОГИКА ГОЛОСОВОГО УПРАВЛЕНИЯ ---
     document.addEventListener("DOMContentLoaded", function () {
 
-        // A. Проверка авторизации Spotify
+        // Проверка авторизации
         fetch("/api/is-authenticated/")
             .then(res => res.json())
             .then(data => {
@@ -261,64 +261,50 @@
                 }
             });
 
-        // B. Логика Голосового Ассистента
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         const voiceBtn = document.getElementById('voice-btn');
 
         if (!SpeechRecognition) {
-            console.warn("Speech API не поддерживается.");
-            if(voiceBtn) voiceBtn.style.display = 'none'; // Прячем кнопку, если браузер не умеет слушать
+            if(voiceBtn) voiceBtn.style.display = 'none';
             return;
         }
 
         const recognition = new SpeechRecognition();
-        recognition.lang = 'ru-RU'; // Русский язык
+        recognition.lang = 'ru-RU';
         recognition.continuous = false;
         recognition.interimResults = false;
 
-        // Клик по микрофону
         voiceBtn.onclick = () => {
             try {
                 recognition.start();
-            } catch (e) {
-                console.error("Уже запущено", e);
-            }
+            } catch (e) { console.error(e); }
         };
 
         recognition.onstart = () => {
-            console.log("🎤 Слушаю...");
             voiceBtn.classList.remove('btn-outline-warning');
             voiceBtn.classList.add('btn-danger', 'pulse-animation');
         };
 
         recognition.onend = () => {
-            console.log("🎤 Конец записи.");
             voiceBtn.classList.remove('btn-danger', 'pulse-animation');
             voiceBtn.classList.add('btn-outline-warning');
         };
 
-        recognition.onerror = (event) => {
-            console.error("Ошибка Speech API:", event.error);
-            // alert("Ошибка распознавания: " + event.error); // Можно раскомментировать для отладки
-            voiceBtn.classList.remove('btn-danger', 'pulse-animation');
-            voiceBtn.classList.add('btn-outline-warning');
-        };
-
-        // Обработка результата речи
         recognition.onresult = (event) => {
             const transcript = event.results[0][0].transcript.toLowerCase().trim();
             console.log("Распознано:", transcript);
 
+            // КОМАНДЫ (Методы PUT заменены на POST)
             if (transcript.includes('плей') || transcript.includes('играй') || transcript.includes('включи')) {
-                apiCall('/api/play-song/', 'PUT');
+                apiCall('/api/play-song/', 'POST');
             }
-            else if (transcript.includes('пауза') || transcript.includes('стоп') || transcript.includes('тихо')) {
-                apiCall('/api/pause-song/', 'PUT');
+            else if (transcript.includes('пауза') || transcript.includes('стоп') || transcript.includes('тихо') || transcript.includes('стой')) {
+                apiCall('/api/pause-song/', 'POST');
             }
             else if (transcript.includes('следующий') || transcript.includes('дальше') || transcript.includes('скип')) {
                 apiCall('/api/skip-song/', 'POST');
             }
-            else if (transcript.includes('выйти')) {
+            else if (transcript.includes('выйти') || transcript.includes('выйди') || transcript.includes('выход') || transcript.includes('покинуть')) {
                 const leaveBtn = document.querySelector('button[hx-post="/leave-room/"]');
                 if(leaveBtn) leaveBtn.click();
             }
@@ -328,41 +314,28 @@
             }
             else if (transcript.startsWith('добавь') || transcript.startsWith('поставь')) {
                 const songName = transcript.replace(/^(добавь|поставь)\s*/, '');
-                if (songName.length > 1) {
-                    searchAndAdd(songName);
-                } else {
-                    alert('Не понял название песни.');
-                }
-            }
-            else {
-                // Если команда не распознана, можно вывести алерт или промолчать
-                console.log(`Неизвестная команда: "${transcript}"`);
+                if (songName.length > 1) searchAndAdd(songName);
             }
         };
 
-        // Функция вызова API
         function apiCall(url, method) {
             const csrftoken = getCookie('csrftoken');
             fetch(url, {
                 method: method,
-                headers: {
-                    'X-CSRFToken': csrftoken,
-                    'Content-Type': 'application/json'
-                }
+                headers: { 'X-CSRFToken': csrftoken, 'Content-Type': 'application/json' }
             }).then(res => {
-                console.log(`API ${url} status:`, res.status);
+                console.log(`API Call ${url} Status: ${res.status}`);
+                // После команды принудительно обновляем плеер через 500мс
+                setTimeout(() => htmx.trigger('#music-player', 'load'), 500);
             });
         }
 
-        // Логика "Добавь песню"
         function searchAndAdd(query) {
-            console.log(`Ищу: ${query}`);
             fetch(`/api/spotify/search/?query=${encodeURIComponent(query)}`)
                 .then(res => res.text())
                 .then(html => {
                     const parser = new DOMParser();
                     const doc = parser.parseFromString(html, 'text/html');
-                    // Ищем первую кнопку добавления в результатах поиска
                     const btn = doc.querySelector('button[hx-vals]');
 
                     if (btn) {
@@ -379,14 +352,10 @@
                             headers: { 'X-CSRFToken': csrftoken },
                             body: formData
                         }).then(res => {
-                            if(res.ok) {
-                                alert(`✅ Добавлено: ${data.title}`);
-                                // Можно автоматически открыть очередь, чтобы показать результат
-                                // document.getElementById('pills-queue-tab').click();
-                            }
+                            if(res.ok) alert(`✅ Добавлено: ${data.title}`);
                         });
                     } else {
-                        alert(`Ничего не нашел по запросу "${query}" 😔`);
+                        alert(`Не нашел: "${query}"`);
                     }
                 });
         }
