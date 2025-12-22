@@ -2,7 +2,7 @@
 
 {% block content %}
 <style>
-    /* ПАНЕЛЬ И ОБЩИЙ ВИД */
+    /* --- СТИЛИ ВИНИЛА И ИНТЕРФЕЙСА --- */
     .glass-panel {
         background: rgba(255, 255, 255, 0.05);
         backdrop-filter: blur(10px);
@@ -10,7 +10,6 @@
         border-radius: 20px;
     }
 
-    /* СТИЛИ ВИНИЛА */
     .vinyl-container {
         position: relative;
         display: inline-block;
@@ -61,7 +60,6 @@
         z-index: 10;
     }
 
-    /* ПЛАВНЫЙ ПРОГРЕСС-БАР */
     #actual-progress-bar {
         height: 100%;
         background-color: #1DB954;
@@ -71,6 +69,16 @@
 
     .control-btn { transition: all 0.2s; }
     .control-btn:hover { transform: scale(1.1); color: #1DB954 !important; }
+
+    /* --- СТИЛИ ДЛЯ ГОЛОСОВОГО АССИСТЕНТА --- */
+    .pulse-animation {
+        animation: pulse-red 1.5s infinite;
+    }
+    @keyframes pulse-red {
+        0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7); }
+        70% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(220, 53, 69, 0); }
+        100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
+    }
 </style>
 
 <div class="row justify-content-center mt-4" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
@@ -80,10 +88,19 @@
             <button class="btn btn-outline-danger btn-sm" hx-post="/leave-room/">
                 <i class="bi bi-box-arrow-left"></i> Leave
             </button>
+
             <div class="text-center">
                 <span class="text-secondary text-uppercase small ls-1">Room Code</span>
-                <h2 class="h4 fw-bold mb-0 text-white">{{ room.code }}</h2>
+                <div class="d-flex align-items-center justify-content-center gap-2">
+                    <h2 class="h4 fw-bold mb-0 text-white">{{ room.code }}</h2>
+                    <button id="voice-btn" class="btn btn-outline-warning btn-sm rounded-circle shadow-sm"
+                            style="width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center;"
+                            title="Голосовое управление">
+                        <i class="bi bi-mic-fill" style="font-size: 0.9rem;"></i>
+                    </button>
+                </div>
             </div>
+
             {% if is_host %}
             <button class="btn btn-outline-light btn-sm" data-bs-toggle="modal" data-bs-target="#settingsModal"
                     hx-get="/api/get-room/?code={{ room.code }}" hx-target="#settings-form-content">
@@ -123,7 +140,7 @@
                 <div class="text-secondary p-5">Loading player…</div>
             </div>
 
-            <button class="btn btn-outline-light btn-sm w-100 mt-3" data-bs-toggle="modal" data-bs-target="#queueModal"
+            <button id="pills-queue-tab" class="btn btn-outline-light btn-sm w-100 mt-3" data-bs-toggle="modal" data-bs-target="#queueModal"
                     hx-get="/api/queue/" hx-target="#queue-content">
                 <i class="bi bi-music-note-list"></i> Open Queue
             </button>
@@ -175,6 +192,7 @@
 </div>
 
 <script>
+    // --- 1. ФУНКЦИЯ ОБНОВЛЕНИЯ ВИНИЛА ---
     function syncVinylState() {
         const dataTag = document.getElementById('player-data');
         if (!dataTag) return;
@@ -212,7 +230,26 @@
         }
     }
 
+    // --- 2. ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    // --- 3. ЛОГИКА ГОЛОСОВОГО УПРАВЛЕНИЯ ---
     document.addEventListener("DOMContentLoaded", function () {
+
+        // Проверка авторизации
         fetch("/api/is-authenticated/")
             .then(res => res.json())
             .then(data => {
@@ -223,6 +260,105 @@
                     {% endif %}
                 }
             });
+
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const voiceBtn = document.getElementById('voice-btn');
+
+        if (!SpeechRecognition) {
+            if(voiceBtn) voiceBtn.style.display = 'none';
+            return;
+        }
+
+        const recognition = new SpeechRecognition();
+        recognition.lang = 'ru-RU';
+        recognition.continuous = false;
+        recognition.interimResults = false;
+
+        voiceBtn.onclick = () => {
+            try {
+                recognition.start();
+            } catch (e) { console.error(e); }
+        };
+
+        recognition.onstart = () => {
+            voiceBtn.classList.remove('btn-outline-warning');
+            voiceBtn.classList.add('btn-danger', 'pulse-animation');
+        };
+
+        recognition.onend = () => {
+            voiceBtn.classList.remove('btn-danger', 'pulse-animation');
+            voiceBtn.classList.add('btn-outline-warning');
+        };
+
+        recognition.onresult = (event) => {
+            const transcript = event.results[0][0].transcript.toLowerCase().trim();
+            console.log("Распознано:", transcript);
+
+            // КОМАНДЫ (Методы PUT заменены на POST)
+            if (transcript.includes('плей') || transcript.includes('играй') || transcript.includes('включи')) {
+                apiCall('/api/play-song/', 'POST');
+            }
+            else if (transcript.includes('пауза') || transcript.includes('стоп') || transcript.includes('тихо') || transcript.includes('стой')) {
+                apiCall('/api/pause-song/', 'POST');
+            }
+            else if (transcript.includes('следующий') || transcript.includes('дальше') || transcript.includes('скип')) {
+                apiCall('/api/skip-song/', 'POST');
+            }
+            else if (transcript.includes('выйти') || transcript.includes('выйди') || transcript.includes('выход') || transcript.includes('покинуть')) {
+                const leaveBtn = document.querySelector('button[hx-post="/leave-room/"]');
+                if(leaveBtn) leaveBtn.click();
+            }
+            else if (transcript.includes('очередь')) {
+                const queueTab = document.getElementById('pills-queue-tab');
+                if(queueTab) queueTab.click();
+            }
+            else if (transcript.startsWith('добавь') || transcript.startsWith('поставь')) {
+                const songName = transcript.replace(/^(добавь|поставь)\s*/, '');
+                if (songName.length > 1) searchAndAdd(songName);
+            }
+        };
+
+        function apiCall(url, method) {
+            const csrftoken = getCookie('csrftoken');
+            fetch(url, {
+                method: method,
+                headers: { 'X-CSRFToken': csrftoken, 'Content-Type': 'application/json' }
+            }).then(res => {
+                console.log(`API Call ${url} Status: ${res.status}`);
+                // После команды принудительно обновляем плеер через 500мс
+                setTimeout(() => htmx.trigger('#music-player', 'load'), 500);
+            });
+        }
+
+        function searchAndAdd(query) {
+            fetch(`/api/spotify/search/?query=${encodeURIComponent(query)}`)
+                .then(res => res.text())
+                .then(html => {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    const btn = doc.querySelector('button[hx-vals]');
+
+                    if (btn) {
+                        const data = JSON.parse(btn.getAttribute('hx-vals'));
+                        const csrftoken = getCookie('csrftoken');
+                        const formData = new FormData();
+                        formData.append('uri', data.uri);
+                        formData.append('title', data.title);
+                        formData.append('artist', data.artist);
+                        formData.append('image_url', data.image_url);
+
+                        fetch('/api/add-to-queue/', {
+                            method: 'POST',
+                            headers: { 'X-CSRFToken': csrftoken },
+                            body: formData
+                        }).then(res => {
+                            if(res.ok) alert(`✅ Добавлено: ${data.title}`);
+                        });
+                    } else {
+                        alert(`Не нашел: "${query}"`);
+                    }
+                });
+        }
     });
 </script>
 {% endblock %}
